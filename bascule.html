@@ -517,13 +517,14 @@ async function remplirStock(csvTxt, buf, nomFichier, nomCsv, opt) {
   const rows = new Map(enfants(sd, 'row').map(r => [+r.getAttribute('r'), r]));
   const cel = (r, col) => { const row = rows.get(r); return row ? enfants(row, 'c').find(c => c.getAttribute('r') === col + r) || null : null; };
   const val = (r, col) => { const c = cel(r, col); return c ? cl.valeur(c) : null; };
-  const ent = [val(2, 'A'), val(2, 'B'), val(2, 'C')].map(v => norm(v));
-  if (ent[0] !== 'PRODUIT' || ent[1] !== 'LIBELLE') throw new Error('En-têtes inattendus ligne 2 de la feuille STOCK (attendu PRODUIT / LIBELLE / QUANTITE FRIGO).');
+  // ligne d'en-tête : celle où B = LIBELLE dans les 5 premières lignes (sinon ligne 2) ; les produits commencent dessous
+  let entete = 2;
+  for (let r = 1; r <= 5; r++) if (norm(val(r, 'B')) === 'LIBELLE') { entete = r; break; }
   // lignes produit
   const index = new Map(), doublons = []; let derniere = 2;
   for (const [r] of [...rows].sort((a, b) => a[0] - b[0])) {
-    if (r < 3) continue;
-    const a = val(r, 'A'); if (a === null || a === '') continue;
+    if (r <= entete) continue;
+    const a = val(r, 'A'); if (a === null || a === '' || typeof a !== 'string') continue;
     derniere = r;
     const k = norm(a) + '|' + norm(val(r, 'B'));
     if (index.has(k)) doublons.push([r, a, val(r, 'B')]); else index.set(k, r);
@@ -589,7 +590,7 @@ async function remplirStock(csvTxt, buf, nomFichier, nomCsv, opt) {
   const maintenant = new Date().toLocaleString('fr-FR'), rap = [];
   rap.push('REPORT TOURNÉE → STOCK UNIVERT MAJ 2025 — ' + maintenant);
   rap.push('Relevé : ' + nomCsv + ' (du ' + (dateReleve || '?') + ')');
-  rap.push('Fichier : ' + nomFichier + ' — feuille STOCK, ' + index.size + ' références (lignes 3 à ' + derniere + ')');
+  rap.push('Fichier : ' + nomFichier + ' — feuille STOCK, ' + index.size + ' références (lignes ' + (entete + 1) + ' à ' + derniere + ')');
   rap.push(opt.vider ? 'Feuille repartie vierge : C, D, E vidés sur toutes les lignes (' + videes + ' cellules contenaient une valeur).'
                      : 'Lignes non comptées laissées telles quelles.');
   rap.push('');
@@ -633,7 +634,8 @@ $('#go').onclick = async () => {
     $('#rapport').textContent = r.rapport;
     telecharger(r.blob, r.nomSortie);
   } catch (e) {
-    $('#res-titre').innerHTML = '<span class="err">⚠ ' + String(e.message).split('\n')[0] + '</span>';
+    console.error(e);
+    $('#res-titre').innerHTML = '<span class="err">⚠ ' + String(e.message).split('\n')[0] + '</span><br><span class="aide">Si le fichier est ouvert dans Excel, fermez-le puis réessayez. Sinon, envoyez une capture de ce message.</span>';
     $('#rapport').textContent = e.message;
   } finally { b.disabled = false; b.textContent = 'Remplir la feuille STOCK'; }
 };
