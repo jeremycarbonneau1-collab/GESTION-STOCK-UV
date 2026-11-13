@@ -651,18 +651,18 @@ brancher('csv', 'csv'); brancher('xlsm', 'xlsm');
 /* Chrome / Edge : on garde un accès direct au fichier pour l'enregistrer À SA PLACE (même nom, même dossier → la liaison du TABLEAU reste valide) */
 let poignee = null;
 if (window.showOpenFilePicker) {
-  $('#d-xlsm').addEventListener('click', async e => {
-    e.preventDefault();
+  const bo = document.createElement('button'); bo.className = 'btn sec'; bo.type = 'button';
+  bo.textContent = '📂 Ou ouvrir le fichier avec enregistrement direct à sa place (Chrome / Edge)';
+  $('#d-xlsm').after(bo);
+  bo.onclick = async () => {
     try {
-      const [h] = await showOpenFilePicker({ types: [{ description: 'Classeur Excel', accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx', '.xlsm'] } }] });
-      poignee = h; const f = await h.getFile(); fichiers.xlsm = f;
-      const zone = $('#d-xlsm'); zone.classList.add('ok'); zone.querySelector('span').textContent = '✓ ' + f.name; $('#go').disabled = !(fichiers.csv && fichiers.xlsm);
-    } catch (err) {
-      if (err && err.name === 'AbortError') return;          // l'utilisateur a fermé la fenêtre
-      console.warn('Sélecteur direct indisponible, retour au choix classique', err);
-      poignee = null; $('#f-xlsm').click();                   // repli : sélecteur de fichier classique (téléchargement)
-    }
-  });
+      const [h] = await showOpenFilePicker();
+      const f = await h.getFile(); poignee = h; fichiers.xlsm = f;
+      const zone = $('#d-xlsm'); zone.classList.add('ok'); zone.querySelector('span').textContent = '✓ ' + f.name + ' (enregistrement direct possible)';
+      $('#go').disabled = !(fichiers.csv && fichiers.xlsm);
+    } catch (err) { if (!err || err.name !== 'AbortError') alert('Ouverture directe impossible : ' + (err && err.message) + '\nUtilise la zone au-dessus (choix classique).'); }
+  };
+  $('#f-xlsm').addEventListener('change', () => { poignee = null; });
   $('#d-xlsm').addEventListener('drop', () => { poignee = null; });
 }
 async function enregistrerSurPlace(blob) {
