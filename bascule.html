@@ -52,8 +52,9 @@ pre{white-space:pre-wrap;font:12.5px/1.5 Consolas,"Courier New",monospace;backgr
   <h2><span class="etape">2</span>Le fichier STOCK UNIVERT MAJ 2025 (.xlsx)</h2>
   <div class="aide">Après ton copier-coller habituel des colonnes A et B du TABLEAU DES VENTES dans la feuille <b>STOCK</b>.
     La page remplit C (quantité frigo), D (date) et E (commentaires) sur la bonne ligne, retrouvée par produit + libellé.
-    Le fichier d'origine n'est pas modifié : la page fabrique le fichier rempli à télécharger, puis tu le remets à sa place
-    (P:\COVIAL\Gestion des Stocks\). Tout se passe dans ce navigateur, rien n'est envoyé sur internet.</div>
+    <b>Fermer le fichier dans Excel avant.</b> Ouvrir directement <b>P:\COVIAL\Gestion des Stocks\STOCK UNIVERT MAJ 2025 .xlsx</b> en cliquant ici
+    (Chrome ou Edge) : la page pourra alors l'enregistrer <b>à sa place</b>, sous le même nom, ce qui garde la liaison du TABLEAU DES VENTES.
+    Tout se passe dans ce navigateur, rien n'est envoyé sur internet.</div>
   <label class="depot" id="d-xlsm"><input type="file" id="f-xlsm" accept=".xlsx,.xlsm"><span>Déposer le fichier ici ou cliquer</span></label>
 </div>
 
@@ -513,70 +514,96 @@ async function remplirStock(csvTxt, buf, nomFichier, nomCsv, opt) {
   const cl = await new Classeur().charger(buf);
   const part = cl.partFeuille('STOCK');
   if (!part) throw new Error('Feuille « STOCK » introuvable : est-ce bien le fichier STOCK UNIVERT MAJ 2025 ?');
-  const doc = parse(await cl.lire(part)), sd = tous(doc, 'sheetData')[0];
-  const rows = new Map(enfants(sd, 'row').map(r => [+r.getAttribute('r'), r]));
-  const cel = (r, col) => { const row = rows.get(r); return row ? enfants(row, 'c').find(c => c.getAttribute('r') === col + r) || null : null; };
-  const val = (r, col) => { const c = cel(r, col); return c ? cl.valeur(c) : null; };
-  // ligne d'en-tête : celle où B = LIBELLE dans les 5 premières lignes (sinon ligne 2) ; les produits commencent dessous
+  const xml = await cl.zip.file(part).async('string');
+
+  /* lecture (DOM, sans réécriture) */
+  const doc = parse(xml);
+  const rowsDom = new Map(tous(doc, 'row').map(r => [+r.getAttribute('r'), r]));
+  const celDom = (r, col) => { const row = rowsDom.get(r); return row ? enfants(row, 'c').find(c => c.getAttribute('r') === col + r) || null : null; };
+  const val = (r, col) => { const c = celDom(r, col); return c ? cl.valeur(c) : null; };
   let entete = 2;
   for (let r = 1; r <= 5; r++) if (norm(val(r, 'B')) === 'LIBELLE') { entete = r; break; }
-  // lignes produit
-  const index = new Map(), doublons = []; let derniere = 2;
-  for (const [r] of [...rows].sort((a, b) => a[0] - b[0])) {
+  const index = new Map(), doublons = []; let derniere = entete;
+  for (const r of [...rowsDom.keys()].sort((a, b) => a - b)) {
     if (r <= entete) continue;
     const a = val(r, 'A'); if (a === null || a === '' || typeof a !== 'string') continue;
     derniere = r;
     const k = norm(a) + '|' + norm(val(r, 'B'));
     if (index.has(k)) doublons.push([r, a, val(r, 'B')]); else index.set(k, r);
   }
-  const styleDate = (() => { for (const r of index.values()) { const c = cel(r, 'D'); if (c && c.getAttribute('s')) return c.getAttribute('s'); } return null; })();
-  function poser(r, col, v, style) {
-    let row = rows.get(r);
-    if (!row) {
-      row = doc.createElementNS(NS, 'row'); row.setAttribute('r', r);
-      const suiv = enfants(sd, 'row').find(x => +x.getAttribute('r') > r); sd.insertBefore(row, suiv || null); rows.set(r, row);
-    }
-    let c = enfants(row, 'c').find(x => x.getAttribute('r') === col + r);
-    if (!c) {
-      c = doc.createElementNS(NS, 'c'); c.setAttribute('r', col + r);
-      const apres = enfants(row, 'c').find(x => colNum(colLettre(x.getAttribute('r'))) > colNum(col)); row.insertBefore(c, apres || null);
-    }
-    while (c.firstChild) c.removeChild(c.firstChild);
-    c.removeAttribute('t');
-    if (style !== undefined && style !== null) c.setAttribute('s', style);
-    if (v === null || v === undefined || v === '') return c;
-    if (typeof v === 'number') { const x = doc.createElementNS(NS, 'v'); x.textContent = fmt(v); c.appendChild(x); return c; }
-    c.setAttribute('t', 'inlineStr');
-    const is = doc.createElementNS(NS, 'is'), t = doc.createElementNS(NS, 't'); t.setAttributeNS('http://www.w3.org/XML/1998/namespace', 'xml:space', 'preserve'); t.textContent = v; is.appendChild(t); c.appendChild(is);
-    return c;
+  const styleDe = (r, col) => { const c = celDom(r, col); return c ? c.getAttribute('s') : null; };
+  let styleDate = null;
+  for (const r of index.values()) { if (styleDe(r, 'D')) { styleDate = styleDe(r, 'D'); break; } }
+
+  /* écriture chirurgicale : on ne remplace que le texte des cellules visées */
+  const morceaux = xml.split(/(<row\b[^>]*?\br="\d+"[^>]*?(?:\/>|>[\s\S]*?<\/row>))/);
+  const posLigne = new Map();
+  morceaux.forEach((m, i) => { const k = /^<row\b[^>]*?\br="(\d+)"/.exec(m); if (k) posLigne.set(+k[1], i); });
+  const xmlEsc = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  function celluleXml(ref, s, v) {
+    const sa = s ? ' s="' + s + '"' : '';
+    if (v === null || v === undefined || v === '') return '<c r="' + ref + '"' + sa + '/>';
+    if (typeof v === 'number') return '<c r="' + ref + '"' + sa + '><v>' + fmt(v) + '</v></c>';
+    return '<c r="' + ref + '"' + sa + ' t="inlineStr"><is><t xml:space="preserve">' + xmlEsc(v) + '</t></is></c>';
   }
+  function poser(r, col, v, styleSiNouvelle) {
+    const ref = col + r;
+    let i = posLigne.get(r);
+    if (i === undefined) {   // ligne absente : on l'ajoute juste avant la ligne suivante (ou en fin de sheetData)
+      const suiv = [...posLigne.keys()].filter(x => x > r).sort((a, b) => a - b)[0];
+      const nouv = '<row r="' + r + '">' + celluleXml(ref, styleSiNouvelle, v) + '</row>';
+      if (suiv !== undefined) { const j = posLigne.get(suiv); morceaux[j] = nouv + morceaux[j]; }
+      else { const k = morceaux.length - 1; morceaux[k] = morceaux[k].replace('</sheetData>', nouv + '</sheetData>'); }
+      return;
+    }
+    let row = morceaux[i];
+    if (/\/>$/.test(row) && !/<\/row>$/.test(row)) row = row.replace(/\/>$/, '></row>');
+    const reCel = new RegExp('<c\\b[^>]*?\\br="' + ref + '"[^>]*?(?:\\/>|>[\\s\\S]*?<\\/c>)');
+    const m = reCel.exec(row);
+    if (m) {
+      const s = (/\bs="(\d+)"/.exec(m[0]) || [])[1] || styleSiNouvelle;
+      row = row.slice(0, m.index) + celluleXml(ref, s, v) + row.slice(m.index + m[0].length);
+    } else {
+      // insérer à la bonne place dans la ligne (ordre des colonnes)
+      const re = /<c\b[^>]*?\br="([A-Z]+)\d+"/g; let k, pos = row.lastIndexOf('</row>');
+      while ((k = re.exec(row))) { if (colNum(k[1]) > colNum(col)) { pos = k.index; break; } }
+      row = row.slice(0, pos) + celluleXml(ref, styleSiNouvelle, v) + row.slice(pos);
+    }
+    morceaux[i] = row;
+  }
+
   let videes = 0;
-  if (opt.vider) for (const r of index.values()) { ['C', 'D', 'E'].forEach(col => { if (cel(r, col) && (premier(cel(r, col), 'v') || premier(cel(r, col), 'is'))) videes++; poser(r, col, ''); }); }
+  if (opt.vider) for (const r of index.values()) ['C', 'D', 'E'].forEach(col => {
+    const v = val(r, col); if (v !== null && v !== '') { videes++; poser(r, col, ''); }
+  });
   const somme = o => Object.values(o).reduce((a, b) => a + b, 0);
   const reportees = [], ajoutees = [], sansDate = [];
-  const cache = {};
   for (const [cle, r] of agr) {
     const total = somme(r.ch);
     const dates = r.dates.map(d => serieExcel(d, dateReleve)).filter(x => x !== null).sort((a, b) => a - b);
     r.dates.forEach(d => { if (serieExcel(d, dateReleve) === null) sansDate.push(r.produit + ' : « ' + d + ' »'); });
-    const comm = [...r.comms, ...r.dates.filter(d => serieExcel(d, dateReleve) === null)].join(' · ');
+    let comm = [...r.comms, ...r.dates.filter(d => serieExcel(d, dateReleve) === null)].join(' · ');
     let ligne = index.get(cle), nouvelle = false;
     if (!ligne) {
       ligne = derniere + 1 + ajoutees.length; nouvelle = true;
-      const sA = (cel(ligne, 'A') || cel(derniere, 'A') || {}).getAttribute ? (cel(ligne, 'A') || cel(derniere, 'A')).getAttribute('s') : null;
-      poser(ligne, 'A', r.produit, await styleJaune(cl, sA, cache));
-      poser(ligne, 'B', r.detail, await styleJaune(cl, (cel(ligne, 'B') || cel(derniere, 'B')).getAttribute('s'), cache));
+      const sA = styleDe(derniere, 'A'), sB = styleDe(derniere, 'B');
+      poser(ligne, 'A', r.produit, sA); poser(ligne, 'B', r.detail, sB);
+      comm = 'NOUVELLE RÉFÉRENCE (à créer dans le TABLEAU DES VENTES)' + (comm ? ' · ' + comm : '');
     }
-    poser(ligne, 'C', total);
-    poser(ligne, 'D', dates.length ? dates[0] : '', dates.length ? (cel(ligne, 'D') && cel(ligne, 'D').getAttribute('s')) || styleDate : undefined);
-    poser(ligne, 'E', comm);
+    poser(ligne, 'C', total, styleDe(derniere, 'C'));
+    poser(ligne, 'D', dates.length ? dates[0] : '', styleDate);
+    poser(ligne, 'E', comm, styleDe(derniere, 'E'));
     (nouvelle ? ajoutees : reportees).push([ligne, r, total]);
   }
-  cl.modifs[part] = ser(doc);
+  const xmlFinal = morceaux.join('');
+  parse(xmlFinal).getElementsByTagName('parsererror').length && (() => { throw new Error('XML de la feuille STOCK invalide après report (rien n\'a été produit).'); })();
+  cl.modifs[part] = xmlFinal;
 
+  /* nouveau fichier : mêmes parties, même ordre, sans entrées « dossier » */
   const sortie = new JSZip();
   const ordre = Object.keys(cl.zip.files).filter(n => !cl.zip.files[n].dir);
-  for (const nom of ordre) sortie.file(nom, cl.modifs[nom] !== undefined ? cl.modifs[nom] : await cl.zip.file(nom).async('uint8array'), { date: cl.zip.files[nom].date });
+  for (const nom of ordre) sortie.file(nom, cl.modifs[nom] !== undefined ? cl.modifs[nom] : await cl.zip.file(nom).async('uint8array'),
+    { date: cl.zip.files[nom].date, createFolders: false });
   const blob = await sortie.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 },
     mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const verif = await JSZip.loadAsync(blob), diff = [];
@@ -585,6 +612,7 @@ async function remplirStock(csvTxt, buf, nomFichier, nomCsv, opt) {
     const a = await cl.zip.file(nom).async('uint8array'), b = await verif.file(nom).async('uint8array');
     if (a.length !== b.length || a.some((x, i) => x !== b[i])) diff.push(nom);
   }
+  if (Object.keys(verif.files).some(n => verif.files[n].dir)) diff.push('(entrées dossier)');
   if (diff.length) throw new Error('Contrôle d\'intégrité en échec : ' + diff.join(', '));
 
   const maintenant = new Date().toLocaleString('fr-FR'), rap = [];
@@ -596,15 +624,16 @@ async function remplirStock(csvTxt, buf, nomFichier, nomCsv, opt) {
   rap.push('');
   rap.push('Lignes remplies (C quantité, D date, E commentaire) : ' + reportees.length + ' — ' + fmt(reportees.reduce((a, x) => a + x[2], 0)) + ' colis');
   if (ajoutees.length) {
-    rap.push(''); rap.push('NOUVELLES RÉFÉRENCES ajoutées en dernière position (surlignées en jaune) — à saisir à la main dans le TABLEAU DES VENTES :');
+    rap.push(''); rap.push('NOUVELLES RÉFÉRENCES ajoutées en dernière position (E = « NOUVELLE RÉFÉRENCE ») — à saisir à la main dans le TABLEAU DES VENTES :');
     ajoutees.forEach(([l, r, t]) => rap.push('  ligne ' + l + ' : ' + r.produit + ' | ' + r.detail + '  = ' + fmt(t)
       + (r.champs ? '   [famille ' + (r.champs.D || '-') + ', emballage ' + (r.champs.I || '-') + ', calibre ' + (r.champs.G || '-') + ', palette ' + (r.champs.M || '-') + ']' : '')));
   }
   if (doublons.length) { rap.push(''); rap.push('ATTENTION libellés en double dans la feuille STOCK (seule la 1re ligne est remplie) :'); doublons.forEach(([l, a, b]) => rap.push('  ligne ' + l + ' : ' + a + ' | ' + b)); }
   if (sansDate.length) { rap.push(''); rap.push('Dates non reconnues, mises en commentaire :'); sansDate.forEach(x => rap.push('  ' + x)); }
-  rap.push(''); rap.push('Parties modifiées : ' + Object.keys(cl.modifs).sort().join(', ') + ' (feuille STOCK' + (cl.modifs['xl/styles.xml'] ? ' + style jaune' : '') + ') ; les ' + (ordre.length - Object.keys(cl.modifs).length) + ' autres parties sont identiques à l\'octet.');
-  rap.push(''); rap.push('ENSUITE : remettre ce fichier à sa place (P:\\COVIAL\\Gestion des Stocks\\, même nom), ouvrir le TABLEAU DES VENTES,');
-  rap.push('mettre à jour les liaisons (colonne W « STOCK EXPE »), puis copier-coller comme d\'habitude.');
+  rap.push(''); rap.push('Seules les cellules C, D, E (et A, B des nouvelles références) de la feuille STOCK ont été remplacées ; le reste du fichier ('
+    + (ordre.length - 1) + ' autres parties, et le reste de la feuille STOCK) est identique à l\'octet.');
+  rap.push(''); rap.push('ENSUITE : enregistrer ce fichier à la place de P:\\COVIAL\\Gestion des Stocks\\' + nomFichier + ' (EXACTEMENT le même nom),');
+  rap.push('puis ouvrir le TABLEAU DES VENTES → mettre à jour les liaisons → copier-coller comme d\'habitude.');
   return { blob, nomSortie: nomFichier, rapport: rap.join('\n'), nb: reportees.length, ajoutees: ajoutees.length };
 }
 
@@ -619,6 +648,24 @@ function brancher(id, cle) {
   zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('survol'); prendre(e.dataTransfer.files[0]); });
 }
 brancher('csv', 'csv'); brancher('xlsm', 'xlsm');
+/* Chrome / Edge : on garde un accès direct au fichier pour l'enregistrer À SA PLACE (même nom, même dossier → la liaison du TABLEAU reste valide) */
+let poignee = null;
+if (window.showOpenFilePicker) {
+  $('#d-xlsm').addEventListener('click', async e => {
+    e.preventDefault();
+    try {
+      const [h] = await showOpenFilePicker({ types: [{ description: 'Classeur Excel', accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx', '.xlsm'] } }] });
+      poignee = h; const f = await h.getFile(); fichiers.xlsm = f;
+      const zone = $('#d-xlsm'); zone.classList.add('ok'); zone.querySelector('span').textContent = '✓ ' + f.name; $('#go').disabled = !(fichiers.csv && fichiers.xlsm);
+    } catch (_) {}
+  });
+  $('#d-xlsm').addEventListener('drop', () => { poignee = null; });
+}
+async function enregistrerSurPlace(blob) {
+  if (!poignee) return false;
+  if ((await poignee.queryPermission({ mode: 'readwrite' })) !== 'granted' && (await poignee.requestPermission({ mode: 'readwrite' })) !== 'granted') return false;
+  const w = await poignee.createWritable(); await w.write(blob); await w.close(); return true;
+}
 function telecharger(blob, nom) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nom; document.body.appendChild(a); a.click(); a.remove(); }
 $('#go').onclick = async () => {
   const b = $('#go'); b.disabled = true; b.textContent = '⏳ Report en cours…';
@@ -630,9 +677,12 @@ $('#go').onclick = async () => {
       + (r.ajoutees ? ', <b>' + r.ajoutees + ' nouvelle(s) référence(s)</b> ajoutée(s) en dernière position (à saisir à la main dans le TABLEAU DES VENTES)' : '') + '.';
     const bx = document.createElement('button'); bx.className = 'btn'; bx.textContent = '💾 Télécharger ' + r.nomSortie; bx.onclick = () => telecharger(r.blob, r.nomSortie);
     const br = document.createElement('button'); br.className = 'btn sec'; br.textContent = 'Télécharger le rapport'; br.onclick = () => telecharger(new Blob([r.rapport], { type: 'text/plain;charset=utf-8' }), 'rapport_report_stock_' + new Date().toISOString().slice(0, 10) + '.txt');
-    $('#res-actions').append(bx, br);
+    if (poignee) {
+      const bs = document.createElement('button'); bs.className = 'btn'; bs.textContent = '✅ Enregistrer à la place de « ' + r.nomSortie + ' »';
+      bs.onclick = async () => { try { if (await enregistrerSurPlace(r.blob)) { bs.textContent = '✔ Enregistré dans le fichier d\'origine'; bs.disabled = true; } } catch (e) { alert('Enregistrement impossible (fichier ouvert dans Excel ?) : ' + e.message); } };
+      bx.className = 'btn sec'; $('#res-actions').append(bs, bx, br);
+    } else { $('#res-actions').append(bx, br); telecharger(r.blob, r.nomSortie); }
     $('#rapport').textContent = r.rapport;
-    telecharger(r.blob, r.nomSortie);
   } catch (e) {
     console.error(e);
     $('#res-titre').innerHTML = '<span class="err">⚠ ' + String(e.message).split('\n')[0] + '</span><br><span class="aide">Si le fichier est ouvert dans Excel, fermez-le puis réessayez. Sinon, envoyez une capture de ce message.</span>';
