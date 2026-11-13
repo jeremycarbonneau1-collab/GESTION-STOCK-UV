@@ -1,25 +1,14 @@
-# Déploiement de l'outil tablette sur le VPS
+# Outil tablette « Tour du stock par chambre » — déploiement
 
-URL cible : https://stock-univert.srv1745823.hstgr.cloud
+En ligne : https://stock-univert.srv1745823.hstgr.cloud
+VPS : projet Docker `stock-univert` (gestionnaire Docker Hostinger), même modèle que tours-culture.
 
-## 1re installation (en SSH sur le VPS)
-```bash
-mkdir -p /docker/STOCK-UNIVERT/html
-cd /docker/STOCK-UNIVERT
-# copier docker-compose.yml ici, puis :
-wget -O html/index.html "https://raw.githubusercontent.com/jeremycarbonneau1-collab/GESTION-STOCK-UV/main/index.html"
-docker compose up -d
-```
-Le certificat HTTPS est créé automatiquement par Traefik (1re ouverture : quelques secondes).
-Si le sous-domaine ne répond pas : vérifier le nom d'entrypoint de Traefik
-(`docker inspect n8n-traefik-1 | grep entrypoints`) et l'ajuster dans docker-compose.yml.
-
-## Mise à jour (nouvelle version de l'outil)
-```bash
-wget -O /docker/STOCK-UNIVERT/html/index.html "https://raw.githubusercontent.com/jeremycarbonneau1-collab/GESTION-STOCK-UV/main/index.html"
-```
-Pas besoin de redémarrer le conteneur.
+## Mettre à jour l'outil
+1. Remplacer `index.html` dans ce dépôt (branche main).
+2. Redémarrer le projet `stock-univert` (hPanel → VPS → Docker Manager → Redémarrer) :
+   au démarrage, le conteneur retélécharge `index.html` depuis GitHub.
+   Si GitHub est injoignable, la version précédente est conservée.
 
 ## Sur la tablette
-Ouvrir l'URL dans Chrome / Safari → menu → « Ajouter à l'écran d'accueil » :
-l'icône UNI-VERT apparaît et l'outil s'ouvre en plein écran.
+Ouvrir l'URL → menu du navigateur → « Ajouter à l'écran d'accueil » :
+icône UNI-VERT, ouverture en plein écran.
