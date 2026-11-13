@@ -657,7 +657,11 @@ if (window.showOpenFilePicker) {
       const [h] = await showOpenFilePicker({ types: [{ description: 'Classeur Excel', accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx', '.xlsm'] } }] });
       poignee = h; const f = await h.getFile(); fichiers.xlsm = f;
       const zone = $('#d-xlsm'); zone.classList.add('ok'); zone.querySelector('span').textContent = '✓ ' + f.name; $('#go').disabled = !(fichiers.csv && fichiers.xlsm);
-    } catch (_) {}
+    } catch (err) {
+      if (err && err.name === 'AbortError') return;          // l'utilisateur a fermé la fenêtre
+      console.warn('Sélecteur direct indisponible, retour au choix classique', err);
+      poignee = null; $('#f-xlsm').click();                   // repli : sélecteur de fichier classique (téléchargement)
+    }
   });
   $('#d-xlsm').addEventListener('drop', () => { poignee = null; });
 }
