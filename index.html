@@ -168,15 +168,23 @@ async function sync() {
   }
 }
 function changerChambre(i, ch) {
-  modifsCh = modifsCh.filter(m => m.i !== i); modifsCh.push({ i, ch });
-  clearTimeout(tCh); tCh = setTimeout(envoyerChambres, 3000);
+  S.chAttente = (S.chAttente || []).filter(m => m.i !== i); S.chAttente.push({ i, ch });
+  saveLocal(); clearTimeout(tCh); tCh = setTimeout(envoyerChambres, 800);
 }
+let envoiCh = null;
 async function envoyerChambres() {
-  if (!modifsCh.length) return;
-  const lot = modifsCh; modifsCh = [];
-  try {
-    await appel('/pilot-stock-repartition-maj', { method: 'POST', body: JSON.stringify({ modifs: lot.map(m => ({ produit: REFS[m.i][0], detail: REFS[m.i][1], chambre: LIB[m.ch] ?? m.ch })) }) });
-  } catch (e) { modifsCh = lot.concat(modifsCh); tCh = setTimeout(envoyerChambres, 30000); }
+  if (envoiCh) return envoiCh;
+  const lot = (S.chAttente || []).slice();
+  if (!lot.length) return;
+  envoiCh = (async () => {
+    try {
+      await appel('/pilot-stock-repartition-maj', { method: 'POST', body: JSON.stringify({ modifs: lot.map(m => ({ produit: REFS[m.i][0], detail: REFS[m.i][1], chambre: LIB[m.ch] ?? m.ch })) }) });
+      S.chAttente = (S.chAttente || []).filter(m => !lot.some(l => l.i === m.i && l.ch === m.ch)); saveLocal();
+    } catch (e) { clearTimeout(tCh); tCh = setTimeout(envoyerChambres, 30000); }
+    finally { envoiCh = null; }
+    if ((S.chAttente || []).length) { clearTimeout(tCh); tCh = setTimeout(envoyerChambres, 800); }
+  })();
+  return envoiCh;
 }
 let filtre = 'tout', recherche = '';
 
@@ -392,12 +400,13 @@ $('#cloturer').onclick = async ev => {
 /* ---------- au démarrage : répartition SharePoint + reprise de la tournée ---------- */
 async function chargerRepartition() {
   try {
+    await envoyerChambres();   // d'abord pousser les changements locaux pas encore envoyés
     const r = await appel('/pilot-stock-repartition');
     const idx = {}; REFS.forEach((x, i) => { idx[(x[0] + '|' + x[1]).toUpperCase()] = i; });
     const vers = { STATION: 'ST', '': 'NA' };
     (r.lignes || []).forEach(l => {
       const i = idx[(String(l[0]).trim() + '|' + String(l[1]).trim()).toUpperCase()];
-      if (i === undefined) return;
+      if (i === undefined || (S.chAttente || []).some(m => m.i === i)) return;
       const ch = vers[String(l[2] || '').toUpperCase()] ?? String(l[2]).toUpperCase();
       if (CHAMBRES.some(c => c.id === ch)) { if (ch !== REFS[i][2]) S.layout[i] = ch; else delete S.layout[i]; }
     });
