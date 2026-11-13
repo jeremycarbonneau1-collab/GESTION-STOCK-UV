@@ -4,11 +4,11 @@ services:
     container_name: stock-univert
     restart: unless-stopped
     environment:
-      - APP_URL=https://raw.githubusercontent.com/jeremycarbonneau1-collab/GESTION-STOCK-UV/refs/heads/main/index.html
+      - APP_URL=https://raw.githubusercontent.com/jeremycarbonneau1-collab/GESTION-STOCK-UV/refs/heads/main
     entrypoint:
       - /bin/sh
       - -c
-      - 'if wget -q -O /tmp/index.html "$$APP_URL" && [ -s /tmp/index.html ]; then cp /tmp/index.html /usr/share/nginx/html/index.html && echo "index.html mis a jour depuis GitHub"; else echo "Telechargement impossible : version actuelle conservee"; fi; exec nginx -g "daemon off;"'
+      - 'for f in index.html bascule.html; do if wget -q -O /tmp/$$f "$$APP_URL/$$f" && [ -s /tmp/$$f ]; then cp /tmp/$$f /usr/share/nginx/html/$$f && echo "$$f mis a jour depuis GitHub"; else echo "$$f : telechargement impossible, version actuelle conservee"; fi; done; exec nginx -g "daemon off;"'
     volumes:
       - ./html:/usr/share/nginx/html
     networks:

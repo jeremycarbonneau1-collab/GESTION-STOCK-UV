@@ -84,6 +84,7 @@ tr.ref.flash td{animation:flash 2.4s ease-out}
 #modal .err{color:var(--crit);font-weight:650;font-size:13px;min-height:18px;margin:6px 0}
 #modal .act{display:flex;gap:10px;justify-content:flex-end;margin-top:8px}
 @media (max-width:760px){#modal .grille{grid-template-columns:1fr}}
+.entete-impr{display:none}
 .foot{font-size:11.5px;color:var(--muted);margin:16px 0 30px;line-height:1.6}
 .cache{display:none}
 @media (max-width:760px){
@@ -102,6 +103,12 @@ tr.ref.flash td{animation:flash 2.4s ease-out}
   tr.prod td,tr.ref.fait td{background:#fff}
   td{padding:7px 8px}
   .qin,.sel{border:1px solid #999;-webkit-appearance:none;appearance:none}
+  body.impr tr.ref:not(.fait), body.impr tr.prod.sans, body.impr .ch.sans, body.impr .vide{display:none!important}
+  body.impr #toast, body.impr #modal{display:none!important}
+  .sel.dsel:not(.rempli), .sel.csel:not(.rempli){color:transparent}
+  .aconf{display:none}
+  .navbar label{display:none}
+  .entete-impr{display:block!important;font-size:12px;margin:0 0 8px}
   @page{size:A4 portrait;margin:12mm}
 }
 </style>
@@ -118,7 +125,7 @@ tr.ref.flash td{animation:flash 2.4s ease-out}
 <div class="toolbar no-print">
   <button class="btn" id="cloturer">✅ Clôturer la tournée</button>
   <button class="btn sec" id="exp-releve">💾 Export CSV (secours)</button>
-  <button class="btn sec" id="print">🖨 Imprimer — une page par chambre</button>
+  <button class="btn sec" id="print">🖨 Imprimer les lignes comptées</button>
   <button class="btn sec" id="exp-rep">Répartition des chambres (CSV)</button>
   <button class="btn sec" id="nouvref">＋ Nouvelle référence</button>
   <button class="btn warn" id="raz">Nouvelle tournée</button>
@@ -142,6 +149,7 @@ tr.ref.flash td{animation:flash 2.4s ease-out}
   Généré depuis <b>TABLEAU_DES_VENTES_MAJ_3.xlsm</b> le 13/11/2026.</div>
 
 <div class="jump no-print" id="jump"></div>
+<div class="entete-impr" id="entete-impr"></div>
 <div id="chambres"></div>
 <div id="toast"></div>
 <datalist id="dl-E"></datalist><datalist id="dl-D"></datalist><datalist id="dl-F"></datalist><datalist id="dl-G"></datalist>
@@ -167,9 +175,9 @@ tr.ref.flash td{animation:flash 2.4s ease-out}
   <div class="act"><button class="btn sec" id="nf-annuler">Annuler</button><button class="btn" id="nf-ok">Créer la référence</button></div>
 </div></div>
 
-<div class="foot no-print">Fin de tournée : <b>Exporter le relevé</b>, puis l'importer dans le TABLEAU DES VENTES avec
-  <code>python3 importer_releve_ventes.py releve.csv TABLEAU_DES_VENTES.xlsm</code> — après la
-  « Ré-initialisation » du soir et avant la saisie des ventes. Si des références sont ajoutées à l'onglet stock,
+<div class="foot no-print">Fin de tournée : <b>Clôturer la tournée</b> (historique + archive du jour dans SharePoint).
+  Au bureau : <a href="bascule.html" target="_blank"><b>page de bascule</b></a> — y déposer l'archive du jour et le TABLEAU DES VENTES,
+  après la « Ré-initialisation » du soir et avant la saisie des ventes. Si des références sont ajoutées à l'onglet stock,
   régénérer cet outil (sinon elles n'apparaissent pas ici).</div>
 </div>
 
@@ -439,7 +447,31 @@ $('#exp-rep').onclick = () => {
   REFS.forEach((r, i) => out.push([r[0], r[1], LIB[chDe(i)] ?? chDe(i), S.layout[i] ? 'oui' : '']));
   telecharger('repartition_chambres_' + S.date.replace(/\//g, '-') + '.csv', out);
 };
-$('#print').onclick = () => print();
+/* impression : uniquement les lignes comptées, une page par chambre */
+let avantImpr = null;
+function preparerImpression() {
+  avantImpr = { filtre, recherche };
+  filtre = 'tout'; recherche = ''; render();
+  document.querySelectorAll('#chambres tr.prod').forEach(tr => {
+    let n = tr.nextElementSibling, ok = false;
+    while (n && !n.classList.contains('prod')) { if (n.classList.contains('fait')) ok = true; n = n.nextElementSibling; }
+    tr.classList.toggle('sans', !ok);
+  });
+  document.querySelectorAll('#chambres .ch').forEach(ch => ch.classList.toggle('sans', !ch.querySelector('tr.ref.fait')));
+  const total = REFS.reduce((t, r, i) => t + (compte(prim(i)) ? 1 : 0), 0) + S.x.filter(e => e && compte(e)).length;
+  $('#entete-impr').textContent = `Relevé du ${S.date} — ${S.appareil} — ${total} ligne(s) comptée(s) — imprimé le ${new Date().toLocaleString('fr-FR')}`;
+  document.body.classList.add('impr');
+}
+function finImpression() {
+  document.body.classList.remove('impr');
+  if (avantImpr) { filtre = avantImpr.filtre; recherche = avantImpr.recherche; avantImpr = null; render(); }
+}
+window.addEventListener('beforeprint', preparerImpression);
+window.addEventListener('afterprint', finImpression);
+$('#print').onclick = () => {
+  if (!REFS.some((r, i) => compte(prim(i))) && !S.x.some(e => e && compte(e))) { toast('Rien de compté : rien à imprimer.'); return; }
+  print();
+};
 let razArme = null;
 $('#raz').onclick = ev => {
   const b = ev.currentTarget;

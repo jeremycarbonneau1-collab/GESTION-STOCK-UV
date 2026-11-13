@@ -1,10 +1,11 @@
 # Outil tablette « Tour du stock par chambre » — déploiement
 
-En ligne : https://stock-univert.srv1745823.hstgr.cloud
+En ligne : https://stock-univert.srv1745823.hstgr.cloud (outil tablette)
+et https://stock-univert.srv1745823.hstgr.cloud/bascule.html (bascule dans le TABLEAU DES VENTES)
 VPS : projet Docker `stock-univert` (gestionnaire Docker Hostinger), même modèle que tours-culture.
 
 ## Mettre à jour l'outil
-1. Remplacer `index.html` dans ce dépôt (branche main).
+1. Remplacer `index.html` et/ou `bascule.html` dans ce dépôt (branche main), attendre ~5 min (cache GitHub).
 2. Redémarrer le projet `stock-univert` (hPanel → VPS → Docker Manager → Redémarrer) :
    au démarrage, le conteneur retélécharge `index.html` depuis GitHub.
    Si GitHub est injoignable, la version précédente est conservée.
