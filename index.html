@@ -63,6 +63,12 @@ tr.ref.fait td{background:var(--ok)}
 .vide{color:var(--faint);font-style:italic;padding:10px 16px;font-size:12.5px}
 #cloud.ok{background:#E6F2E8;color:var(--brand)} #cloud.att{background:#FBF5EA;color:#71510F} #cloud.err{background:#F8E3E0;color:var(--crit)}
 #msg a{color:var(--brand);font-weight:700}
+#toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#20312A;color:#fff;
+  padding:12px 18px;border-radius:12px;font-weight:650;font-size:14px;box-shadow:0 6px 24px rgba(0,0,0,.25);
+  z-index:20;max-width:92vw;opacity:0;transition:opacity .25s;pointer-events:none}
+#toast.on{opacity:1}
+tr.ref.flash td{animation:flash 2.4s ease-out}
+@keyframes flash{0%,40%{background:#FFF3C4}100%{background:inherit}}
 .foot{font-size:11.5px;color:var(--muted);margin:16px 0 30px;line-height:1.6}
 .cache{display:none}
 @media (max-width:760px){
@@ -121,6 +127,7 @@ tr.ref.fait td{background:var(--ok)}
 
 <div class="jump no-print" id="jump"></div>
 <div id="chambres"></div>
+<div id="toast"></div>
 
 <div class="foot no-print">Fin de tournée : <b>Exporter le relevé</b>, puis l'importer dans le TABLEAU DES VENTES avec
   <code>python3 importer_releve_ventes.py releve.csv TABLEAU_DES_VENTES.xlsm</code> — après la
@@ -167,7 +174,11 @@ async function sync() {
     clearTimeout(tSave); tSave = setTimeout(sync, 20000);
   }
 }
+let tToast;
+function toast(txt) { const t = document.getElementById('toast'); t.innerHTML = txt; t.classList.add('on'); clearTimeout(tToast); tToast = setTimeout(() => t.classList.remove('on'), 3500); }
+const nomCh = ch => (CHAMBRES.find(c => c.id === ch) || {}).nom || ch;
 function changerChambre(i, ch) {
+  toast(`<b>${esc(REFS[i][0])}</b> · ${esc(REFS[i][1].split(' - ')[0])} → <b>${esc(nomCh(ch))}</b> <span style="opacity:.75">· envoi…</span>`);
   S.chAttente = (S.chAttente || []).filter(m => m.i !== i); S.chAttente.push({ i, ch });
   saveLocal(); clearTimeout(tCh); tCh = setTimeout(envoyerChambres, 800);
 }
@@ -180,7 +191,8 @@ async function envoyerChambres() {
     try {
       await appel('/pilot-stock-repartition-maj', { method: 'POST', body: JSON.stringify({ modifs: lot.map(m => ({ produit: REFS[m.i][0], detail: REFS[m.i][1], chambre: LIB[m.ch] ?? m.ch })) }) });
       S.chAttente = (S.chAttente || []).filter(m => !lot.some(l => l.i === m.i && l.ch === m.ch)); saveLocal();
-    } catch (e) { clearTimeout(tCh); tCh = setTimeout(envoyerChambres, 30000); }
+      toast(lot.length === 1 ? `✅ <b>${esc(REFS[lot[0].i][0])}</b> enregistré en <b>${esc(nomCh(lot[0].ch))}</b> dans SharePoint` : `✅ ${lot.length} changements de chambre enregistrés dans SharePoint`);
+    } catch (e) { toast('⚠ Hors ligne : changement de chambre gardé sur la tablette, renvoi automatique'); clearTimeout(tCh); tCh = setTimeout(envoyerChambres, 30000); }
     finally { envoiCh = null; }
     if ((S.chAttente || []).length) { clearTimeout(tCh); tCh = setTimeout(envoyerChambres, 800); }
   })();
@@ -325,6 +337,8 @@ box.addEventListener('change', ev => {
   } else if (t.classList.contains('chsel')) {
     if (k[0] === 'p') { S.layout[+k.slice(1)] = t.value; changerChambre(+k.slice(1), t.value); } else e.ch = t.value;
     save(); render();
+    const tr = document.querySelector(`tr.ref[data-k="${k}"]`);
+    if (tr) { tr.classList.add('flash'); tr.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
   }
 });
 document.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => {
