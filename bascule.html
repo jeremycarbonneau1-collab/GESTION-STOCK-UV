@@ -632,9 +632,9 @@ async function remplirStock(csvTxt, buf, nomFichier, nomCsv, opt) {
   if (sansDate.length) { rap.push(''); rap.push('Dates non reconnues, mises en commentaire :'); sansDate.forEach(x => rap.push('  ' + x)); }
   rap.push(''); rap.push('Seules les cellules C, D, E (et A, B des nouvelles références) de la feuille STOCK ont été remplacées ; le reste du fichier ('
     + (ordre.length - 1) + ' autres parties, et le reste de la feuille STOCK) est identique à l\'octet.');
-  rap.push(''); rap.push('ENSUITE : enregistrer ce fichier à la place de P:\\COVIAL\\Gestion des Stocks\\' + nomFichier + ' (EXACTEMENT le même nom),');
+  rap.push(''); rap.push('ENSUITE : enregistrer ce fichier à la place de P:\\COVIAL\\Gestion des Stocks\\STOCK UNIVERT MAJ 2025 .xlsx (EXACTEMENT ce nom, espace avant .xlsx),');
   rap.push('puis ouvrir le TABLEAU DES VENTES → mettre à jour les liaisons → copier-coller comme d\'habitude.');
-  return { blob, nomSortie: nomFichier, rapport: rap.join('\n'), nb: reportees.length, ajoutees: ajoutees.length };
+  return { blob, nomSortie: 'STOCK UNIVERT MAJ 2025 .xlsx', rapport: rap.join('\n'), nb: reportees.length, ajoutees: ajoutees.length };
 }
 
 /* ---------------- interface ---------------- */
