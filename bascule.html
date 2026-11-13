@@ -22,6 +22,7 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 "Segoe UI",system-ui,-a
 .depot.ok{border-color:var(--brand-2);color:var(--brand);background:#F1F7F2;font-weight:650}
 .depot.survol{border-color:var(--brand-2);background:#F1F7F2}
 .depot input{display:none}
+.methode{margin-top:10px;padding:10px 14px;background:#eef7ee;border-radius:8px;font-size:14px}.methode ol{margin:6px 0 0 18px;padding:0}
 .aide{font-size:12.5px;color:var(--muted)}
 label.opt{display:flex;gap:8px;align-items:flex-start;margin:6px 0;font-size:13.5px}
 label.opt input{margin-top:3px;width:18px;height:18px}
@@ -52,8 +53,7 @@ pre{white-space:pre-wrap;font:12.5px/1.5 Consolas,"Courier New",monospace;backgr
   <h2><span class="etape">2</span>Le fichier STOCK UNIVERT MAJ 2025 (.xlsx)</h2>
   <div class="aide">Après ton copier-coller habituel des colonnes A et B du TABLEAU DES VENTES dans la feuille <b>STOCK</b>.
     La page remplit C (quantité frigo), D (date) et E (commentaires) sur la bonne ligne, retrouvée par produit + libellé.
-    <b>Fermer le fichier dans Excel avant.</b> Ouvrir directement <b>P:\COVIAL\Gestion des Stocks\STOCK UNIVERT MAJ 2025 .xlsx</b> en cliquant ici
-    (Chrome ou Edge) : la page pourra alors l'enregistrer <b>à sa place</b>, sous le même nom, ce qui garde la liaison du TABLEAU DES VENTES.
+    La page lit le fichier sans le modifier : tu pourras ensuite coller le résultat directement dans Excel (le fichier peut rester ouvert).
     Tout se passe dans ce navigateur, rien n'est envoyé sur internet.</div>
   <label class="depot" id="d-xlsm"><input type="file" id="f-xlsm" accept=".xlsx,.xlsm"><span>Déposer le fichier ici ou cliquer</span></label>
 </div>
@@ -63,7 +63,7 @@ pre{white-space:pre-wrap;font:12.5px/1.5 Consolas,"Courier New",monospace;backgr
   <label class="opt"><input type="checkbox" id="o-vider" checked><span><b>Repartir d'une feuille vierge</b> : vider C, D et E sur toutes les lignes avant
     de reporter la tournée (comme une nouvelle feuille papier : une référence non comptée = pas de stock).
     Décocher pour ne remplacer que les lignes comptées et garder les autres telles quelles.</span></label>
-  <div class="actions"><button class="btn" id="go" disabled>Remplir la feuille STOCK</button></div>
+  <div class="actions"><button class="btn" id="go" disabled>Préparer le report</button></div>
 </div>
 
 <div class="carte" id="res" style="display:none">
@@ -615,6 +615,30 @@ async function remplirStock(csvTxt, buf, nomFichier, nomCsv, opt) {
   if (Object.keys(verif.files).some(n => verif.files[n].dir)) diff.push('(entrées dossier)');
   if (diff.length) throw new Error('Contrôle d\'intégrité en échec : ' + diff.join(', '));
 
+  /* blocs à copier-coller dans Excel (le fichier reste ouvert et enregistré par Excel : nom et liaison intacts) */
+  const dFr = n => { if (n === null || n === undefined || n === '') return ''; const d = new Date(Date.UTC(1899, 11, 30) + n * 864e5);
+    return String(d.getUTCDate()).padStart(2, '0') + '/' + String(d.getUTCMonth() + 1).padStart(2, '0') + '/' + d.getUTCFullYear(); };
+  const propre = t => String(t || '').replace(/[\t\r\n]+/g, ' ');
+  const parLigne = new Map();
+  for (const [cle, r] of agr) {
+    const dates = r.dates.map(d => serieExcel(d, dateReleve)).filter(x => x !== null).sort((a, b) => a - b);
+    const comm = [...r.comms, ...r.dates.filter(d => serieExcel(d, dateReleve) === null)].join(' · ');
+    parLigne.set(cle, { total: somme(r.ch), date: dates.length ? dates[0] : '', comm, r });
+  }
+  const lignesCDE = [];
+  const cleDeLigne = new Map([...index].map(([k, l]) => [l, k]));
+  for (let l = entete + 1; l <= derniere; l++) {
+    const k = cleDeLigne.get(l), x = k ? parLigne.get(k) : null;
+    if (x) lignesCDE.push([fmt(x.total), dFr(x.date), propre(x.comm)].join('\t'));
+    else if (k && !opt.vider) lignesCDE.push([val(l, 'C') ?? '', typeof val(l, 'D') === 'number' ? dFr(val(l, 'D')) : (val(l, 'D') ?? ''), propre(val(l, 'E'))].join('\t'));
+    else lignesCDE.push('\t\t');
+  }
+  const lignesNouv = [];
+  for (const [cle, x] of parLigne) if (!index.has(cle))
+    lignesNouv.push([propre(x.r.produit), propre(x.r.detail), fmt(x.total), dFr(x.date),
+      propre('NOUVELLE RÉFÉRENCE (à créer dans le TABLEAU DES VENTES)' + (x.comm ? ' · ' + x.comm : ''))].join('\t'));
+  const copie = { cde: lignesCDE.join('\r\n'), celluleCDE: 'C' + (entete + 1), nouv: lignesNouv.join('\r\n'), celluleNouv: 'A' + (derniere + 1) };
+
   const maintenant = new Date().toLocaleString('fr-FR'), rap = [];
   rap.push('REPORT TOURNÉE → STOCK UNIVERT MAJ 2025 — ' + maintenant);
   rap.push('Relevé : ' + nomCsv + ' (du ' + (dateReleve || '?') + ')');
@@ -634,7 +658,7 @@ async function remplirStock(csvTxt, buf, nomFichier, nomCsv, opt) {
     + (ordre.length - 1) + ' autres parties, et le reste de la feuille STOCK) est identique à l\'octet.');
   rap.push(''); rap.push('ENSUITE : enregistrer ce fichier à la place de P:\\COVIAL\\Gestion des Stocks\\STOCK UNIVERT MAJ 2025 .xlsx (EXACTEMENT ce nom, espace avant .xlsx),');
   rap.push('puis ouvrir le TABLEAU DES VENTES → mettre à jour les liaisons → copier-coller comme d\'habitude.');
-  return { blob, nomSortie: 'STOCK UNIVERT MAJ 2025 .xlsx', rapport: rap.join('\n'), nb: reportees.length, ajoutees: ajoutees.length };
+  return { copie, blob, nomSortie: 'STOCK UNIVERT MAJ 2025 .xlsx', rapport: rap.join('\n'), nb: reportees.length, ajoutees: ajoutees.length };
 }
 
 /* ---------------- interface ---------------- */
@@ -677,21 +701,37 @@ $('#go').onclick = async () => {
   try {
     const csvTxt = await fichiers.csv.text(), buf = await fichiers.xlsm.arrayBuffer();
     const r = await remplirStock(csvTxt, buf, fichiers.xlsm.name, fichiers.csv.name, { vider: $('#o-vider').checked });
-    $('#res-titre').innerHTML = '<span class="ok">✅ Feuille STOCK remplie</span> : ' + r.nb + ' ligne(s) reportée(s)'
-      + (r.ajoutees ? ', <b>' + r.ajoutees + ' nouvelle(s) référence(s)</b> ajoutée(s) en dernière position (à saisir à la main dans le TABLEAU DES VENTES)' : '') + '.';
-    const bx = document.createElement('button'); bx.className = 'btn'; bx.textContent = '💾 Télécharger ' + r.nomSortie; bx.onclick = () => telecharger(r.blob, r.nomSortie);
-    const br = document.createElement('button'); br.className = 'btn sec'; br.textContent = 'Télécharger le rapport'; br.onclick = () => telecharger(new Blob([r.rapport], { type: 'text/plain;charset=utf-8' }), 'rapport_report_stock_' + new Date().toISOString().slice(0, 10) + '.txt');
+    $('#res-titre').innerHTML = '<span class="ok">✅ Relevé prêt</span> : ' + r.nb + ' ligne(s) comptée(s)'
+      + (r.ajoutees ? ', <b>' + r.ajoutees + ' nouvelle(s) référence(s)</b>' : '') + '.'
+      + '<div class="methode"><b>Méthode recommandée (la liaison ne bouge pas) :</b><ol>'
+      + '<li>Ouvre <b>STOCK UNIVERT MAJ 2025 .xlsx</b> dans Excel, feuille STOCK (comme d\'habitude).</li>'
+      + '<li>Clique <b>« Copier C/D/E »</b> ci-dessous, puis dans Excel clique la cellule <b>' + r.copie.celluleCDE + '</b> et fais <b>Ctrl+V</b>.</li>'
+      + (r.ajoutees ? '<li>Clique <b>« Copier les nouvelles références »</b>, puis clique la cellule <b>' + r.copie.celluleNouv + '</b> et fais <b>Ctrl+V</b>.</li>' : '')
+      + '<li><b>Ctrl+S</b> dans Excel. Le TABLEAU DES VENTES lit ensuite les valeurs normalement.</li></ol></div>';
+    const copier = async (txt, btn, lib) => {
+      try { await navigator.clipboard.writeText(txt); }
+      catch (_) { const t = document.createElement('textarea'); t.value = txt; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); }
+      btn.textContent = '✔ Copié — colle en ' + lib; setTimeout(() => btn.textContent = btn.dataset.l, 4000);
+    };
+    const b1 = document.createElement('button'); b1.className = 'btn'; b1.dataset.l = b1.textContent = '📋 Copier C/D/E (à coller en ' + r.copie.celluleCDE + ')';
+    b1.onclick = () => copier(r.copie.cde, b1, r.copie.celluleCDE);
+    $('#res-actions').append(b1);
+    if (r.ajoutees) { const b2 = document.createElement('button'); b2.className = 'btn'; b2.dataset.l = b2.textContent = '📋 Copier les nouvelles références (à coller en ' + r.copie.celluleNouv + ')';
+      b2.onclick = () => copier(r.copie.nouv, b2, r.copie.celluleNouv); $('#res-actions').append(b2); }
+    const bx = document.createElement('button'); bx.className = 'btn sec'; bx.textContent = 'Autre méthode : télécharger le fichier rempli'; bx.onclick = () => telecharger(r.blob, r.nomSortie);
+    const br = document.createElement('button'); br.className = 'btn sec'; br.textContent = 'Télécharger le rapport'; br.onclick = () => telecharger(new Blob([r.rapport], { type: 'text/plain;charset=utf-8' }), 'rapport_report_stock.txt');
     if (poignee) {
-      const bs = document.createElement('button'); bs.className = 'btn'; bs.textContent = '✅ Enregistrer à la place de « ' + r.nomSortie + ' »';
-      bs.onclick = async () => { try { if (await enregistrerSurPlace(r.blob)) { bs.textContent = '✔ Enregistré dans le fichier d\'origine'; bs.disabled = true; } } catch (e) { alert('Enregistrement impossible (fichier ouvert dans Excel ?) : ' + e.message); } };
-      bx.className = 'btn sec'; $('#res-actions').append(bs, bx, br);
-    } else { $('#res-actions').append(bx, br); telecharger(r.blob, r.nomSortie); }
+      const bs = document.createElement('button'); bs.className = 'btn sec'; bs.textContent = 'Autre méthode : enregistrer à la place du fichier';
+      bs.onclick = async () => { try { if (await enregistrerSurPlace(r.blob)) { bs.textContent = '✔ Enregistré'; bs.disabled = true; } } catch (e) { alert('Enregistrement impossible (fichier ouvert dans Excel ?) : ' + e.message); } };
+      $('#res-actions').append(bs);
+    }
+    $('#res-actions').append(bx, br);
     $('#rapport').textContent = r.rapport;
   } catch (e) {
     console.error(e);
     $('#res-titre').innerHTML = '<span class="err">⚠ ' + String(e.message).split('\n')[0] + '</span><br><span class="aide">Si le fichier est ouvert dans Excel, fermez-le puis réessayez. Sinon, envoyez une capture de ce message.</span>';
     $('#rapport').textContent = e.message;
-  } finally { b.disabled = false; b.textContent = 'Remplir la feuille STOCK'; }
+  } finally { b.disabled = false; b.textContent = 'Préparer le report'; }
 };
 </script>
 </body>
