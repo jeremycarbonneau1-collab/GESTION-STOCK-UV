@@ -146,7 +146,7 @@ tr.ref.flash td{animation:flash 2.4s ease-out}
   Quantité vide = pas comptée (le stock frigo reste tel quel) ; <b>0</b> = compté vide.
   Une référence rangée dans deux chambres : bouton <b>＋</b> pour ajouter une ligne dans l'autre chambre.
   La saisie est <b>sauvegardée sur la tablette</b> au fur et à mesure.
-  Généré depuis <b>TABLEAU_DES_VENTES_MAJ_3.xlsm</b> le 13/11/2026.</div>
+  Généré depuis <b>TABLEAU_DES_VENTES_MAJ_3.xlsm</b> le 19/11/2026.</div>
 
 <div class="jump no-print" id="jump"></div>
 <div class="entete-impr" id="entete-impr"></div>
@@ -194,6 +194,7 @@ const REFS = [["AMANDE","PB 40x30 4K - PERDUE 100*120","NA",0,"AMANDE"],["AVOCAT
 /* valeurs existantes de l'onglet stock, pour les listes du formulaire « Nouvelle référence » */
 const CHOIX = {"D":["AMANDE","CAROTTE","CEDRAT","CHOUX","CITRON","CITRON MEYER","CLEMENTINE","COING","CONCOMBRE","COURGE","COURGETTE","FENOUIL","FEUILLUS","GRENADE","HARICOT VERT","HERBES","JEUNES POUSSES","KAKI","KIWI","MACHE","MANDARINE","NOISETTE","OIGNONS","PATATE DOUCE","PDT","POIRE","POIVRON","POMME","RADIS","SALADES MIXTES","SALADES ROUGES","SALADES VERTES","TOMATE"],"E":["AMANDE","CAROTTE PRIMEUR","CEDRAT","CEDRAT MAIN DE BOUDDHA","CEDRAT MAIN DE BOUDDHA CAT2","CELERI BRANCHE","CELERI BRANCHE BCP","CHOU RAVE ROUGE","CHOU RAVE VERT","CITRON CAVIAR","CITRON COMBAVA","CITRON LIME","CITRON LIME CAT2","CITRON LIME GMS","CITRON MEYER","CITRON YUZU","CLEMENTINE CAPIC CAFFIN BCP BEF","CLEMENTINE CAPIC FINES 10KG","CLEMENTINE CAPIC FINES BCP BEF","CLEMENTINE CAPIC FINES BEF","CLEMENTINE GMS","CLEMENTINE PELLISSIER","COING","CONCOMBRE LONG BCP","CONCOMBRE LONG CAT II","COURGE BUTTERNUT","COURGE BUTTERNUT BCP","COURGE BUTTERNUT GMS","COURGE MUSCADE","COURGE MUSCADE BCP","COURGE POTIMARRON","COURGE POTIMARRON BCP","COURGE POTIMARRON GMS","COURGE POTIMARRON NEGOCE","COURGETTE LONGUE VERTE","COURGETTE LONGUE VERTE BCP","COURGETTE LONGUE VERTE CAT II","EPINARD FEUILLE","EPINARD FEUILLE BCP","EPINARD FEUILLE export","FENOUIL","GRENADE INDUSTRIE","GRENADE ORANGE MOLLAR D'ELCHE","GRENADE ROUGE ACCO","GRENADE ROUGE ACCO CAT2","GRENADE ROUGE VKUSHNNY","GRENADE ROUGE WONDERFUL","GRENADE VRAC","HARICOT VERT","HERBES CORIANDRE","HERBES CORIANDRE MSP","HERBES CORIANDRE export","HERBES CORIANDRE export 30G","HERBES PERSIL PLAT","HERBES PERSIL PLAT MSP","HERBES PERSIL PLAT export","HERBES PERSIL PLAT export 30G","JEUNES POUSSES EPINARD","JEUNES POUSSES EPINARD BCP","JEUNES POUSSES MESCLUN","JEUNES POUSSES MESCLUN BCP","JEUNES POUSSES ROQUETTE","JEUNES POUSSES ROQUETTE BCP","KAKI POMME 14 FRUITS","KAKI POMME 18 FRUITS","KAKI POMME 22 FRUITS","KAKI POMME 24 FRUITS","KAKI POMME 26 FRUITS","KAKI POMME 34 FRUITS","KAKI POMME CAT","KAKI POMME CAT2","KIWI","KIWI PLAT","LAITUE BATA BLONDE","LAITUE BATA BLONDE BCP","LAITUE BATA BLONDE BOND","LAITUE BATA BLONDE EXPORT","LAITUE BATA BLONDE GMS","LAITUE BATA BLONDE MSP","LAITUE BATA BLONDE NT","LAITUE BATA ROUGE","LAITUE BATA ROUGE BCP","LAITUE BATA ROUGE EXPORT","LAITUE BATA ROUGE MSP","LAITUE FEUILLE BLONDE","LAITUE FEUILLE BLONDE BCP","LAITUE FEUILLE BLONDE BOND","LAITUE FEUILLE BLONDE EXPORT","LAITUE FEUILLE BLONDE GMS","LAITUE FEUILLE BLONDE MSP","LAITUE FEUILLE BLONDE NT","LAITUE FEUILLE ROUGE","LAITUE FEUILLE ROUGE BCP","LAITUE FEUILLE ROUGE EXPORT","LAITUE FEUILLE ROUGE MSP","LAITUE LAITUE ROUGE","LAITUE LAITUE ROUGE BCP","LAITUE LAITUE ROUGE EXPORT","LAITUE LAITUE VERTE","LAITUE LAITUE VERTE BCP","LAITUE LAITUE VERTE BOND","LAITUE LAITUE VERTE EXPORT","LAITUE LAITUE VERTE MSP","LAITUE MELANGE EXPORT 2 VARIETES","LAITUE ROMAINE","LAITUE ROMAINE BCP","LAITUE ROMAINE EXPORT","LAITUE ROUGETTE","LAITUE ROUGETTE BCP","LAITUE ROUGETTE EXPORT","LAITUE ROUGETTE MSP","LAITUE ROUGETTE NT","LAITUE SUCRINE","LAITUE SUCRINE BCP","LAITUE SUCRINE EXPORT","LAITUE SUCRINE MSP","LAITUE SUCRINE VERTE CŒUR GMS","MACHE","MACHE BCP","MACHE BCP GMS","MANDARINE NIGP","MANDARINE NIGP CAT II","MANDARINE NIGP GMS","NOISETTE","OIGNON DOUX DES CEVENNES","PATATE DOUCE","PDT CONSO","POIRE CONFERENCE","POIRE CONFERENCE LITE","POIRE GENERAL LECLERC","POIRE GENERAL LECLERC LITE","POIRE HARROW SWEET","POIRE SODEXO","POIVRON ROUGE","POIVRON VERT","POMME DALINETTE","POMME GALA","POMME GALA BCP","POMME GALA NATURALIA","POMME GOLDEN","POMME GOLDEN BCP","POMME GOLDEN ORANGE","POMME GRANNY SMITH","POMME REINETTE","POMME STORY","POMME STORY 100 FRUITS","POMME STORY 14 KG","POMME STORY BCP","POMME STORY GMS","POMME STORY NATURALIA","RADIS LONG ROSE","RADIS LONG ROSE BCP","RADIS ROND ROUGE","RADIS ROND ROUGE BCP","TOMATE CERISE ALLONGEE","TOMATE CERISE ALLONGEE GMS","TOMATE COTELEE ROUGE HYBRIDE"],"F":[],"G":["1","1.2 KG +","10","115+","12","135+","136-165","14","14/21","170+","18","2","20","20-40","200+","200-800","21/30","22","23","24","25","26","27","3","3-4","30","300-400 GRAMMES","33","34","35+","36","39","4","4-5","40-60","42","46","49","5","5-6","500+","55+","6","60+","60-65","60-80","65 +","80-100","80-115","800-1200","CAL 3-4-5","TOUS CAL"],"H":[],"I":["BOIS - 6 POCHONS","EUROPOOL 186 - 12P","EUROPOOL 216 - 12P","EUROPOOL 216 - 4 KG","IF 6408 NT","IF BLL 6410 10B*500G","IF BLL 6420 (NOIRE) 10x5 bottes","IF BLL 6420 12P","IF BLL6410 8B*4F","IF BLL6416 10P","IF BLL6420 10P","IFCOBL6413-6Pochons-GMS","PALOX","PB 30X20 6 BOTTES","PB 40x30 12P","PB 40x30 15 BOTTES","PB 40x30 1K","PB 40x30 3K","PB 40x30 4,5k","PB 40x30 4K","PB 40x30 5K","PB 40x30 6 BOTTES","PB 40x30 6K","PB 40x30 NT","PB 50x30 10K","PB 50x30 10P - 12KG","PB 50x30 12P","PB 50x30 12P - 12KG","PB 50x30 13K","PB 50x30 14K","PB 50x30 5K","PB 50x30 6K","PB 50x30 8P - 12KG","PB 60x40 10 X 5 Bottes","PB 60x40 10K","PB 60x40 12 BOTTES","PB 60x40 12K","PB 60x40 12P","PB 60x40 4K","PB 60x40 5K","PB 60x40 6K","PC 30x20 2K","PC 30x20 3K","PC 30x20 4B2P","PC 30x20 4Bx100G","PC 40x30 100F","PC 40x30 3K","PC 40x30 4K","PC 40x30 6 X 100 GR","PC 40x30 6K","PC 50x30 10K","PC 50x30 5K LITE","PC 50x30 5P","PC 60x40 100 FRUITS","PC 60x40 10B*500G","PC 60x40 10Bx500G","PC 60x40 10P","PC 60x40 12B250G","PC 60x40 8BX500G","PC 60x40 90 FRUITS"],"J":["AUCHAN FILIERE","Bonduelle - pas de garniture-pas de coiffe-pas etiquette","Coiffe plastique","Complexe kraft","GMS","Garniture Kraft","Garniture Kraft - Etiquettes BIOCOOP","Garniture kraft - Etiquettes UNI-VERT","MONOPRIX","Sans étiquettes - sans coiffe platique - sans pochons","TERRE DE BIO","UBIO","dessous et dessus KRAFT","sans coiffe plastique"],"K":[],"M":["EUROPE 80*120","PALETTE PERDUE 80*120","PERDUE 100*120"]};
 const NB_BASE = REFS.length;
+const vraieNv = n => n && !n.liste ? n : null;   // ajout venu de la liste STOCK = pas une création
 const cleRef = (p, d) => (String(p).trim() + '|' + String(d).trim()).replace(/\s+/g, ' ').toUpperCase();
 /* réplique exacte de la formule de la colonne N « Détail ventes » */
 function detailVentes(c) {
@@ -218,6 +219,8 @@ function integrerNouvelles() {
   S.nouvelles.forEach(n => REFS.push([n.E, n.detail, n.ch || 'NA', 0, n.D || '', n]));
 }
 integrerNouvelles();
+let LISTE = S.liste && S.liste.cles ? new Set(S.liste.cles) : null;
+const dansListe = i => !LISTE || LISTE.has(cleRef(REFS[i][0], REFS[i][1])) || compte(prim(i)) || S.x.some(e => e && e.i === i && compte(e));
 const N8N = 'https://n8n.srv1745823.hstgr.cloud/webhook';
 let enAttente = false, tSave = null, modifsCh = [], tCh = null;
 const saveLocal = () => { try { localStorage.setItem(CLE, JSON.stringify(S)); } catch (e) {} };
@@ -255,7 +258,7 @@ async function envoyerChambres() {
   if (!lot.length) return;
   envoiCh = (async () => {
     try {
-      await appel('/pilot-stock-repartition-maj', { method: 'POST', body: JSON.stringify({ modifs: lot.map(m => ({ produit: REFS[m.i][0], detail: REFS[m.i][1], chambre: LIB[m.ch] ?? m.ch, nouvelle: REFS[m.i][5] ? champsRef(REFS[m.i][5]) : null })) }) });
+      await appel('/pilot-stock-repartition-maj', { method: 'POST', body: JSON.stringify({ modifs: lot.map(m => ({ produit: REFS[m.i][0], detail: REFS[m.i][1], chambre: LIB[m.ch] ?? m.ch, nouvelle: vraieNv(REFS[m.i][5]) ? champsRef(REFS[m.i][5]) : null })) }) });
       S.chAttente = (S.chAttente || []).filter(m => !lot.some(l => l.i === m.i && l.ch === m.ch)); saveLocal();
       toast(lot.length === 1 ? `✅ <b>${esc(REFS[lot[0].i][0])}</b> enregistré en <b>${esc(nomCh(lot[0].ch))}</b> dans SharePoint` : `✅ ${lot.length} changements de chambre enregistrés dans SharePoint`);
     } catch (e) { toast('⚠ Hors ligne : changement de chambre gardé sur la tablette, renvoi automatique'); clearTimeout(tCh); tCh = setTimeout(envoyerChambres, 30000); }
@@ -294,7 +297,7 @@ const optionsCh = cur => CHAMBRES.map(k => `<option value="${k.id}"${k.id===cur?
 function ligneRef(key, i, e, split) {
   const r = REFS[i];
   return `<tr class="ref${compte(e)?' fait':''}" data-k="${key}">
-    <td class="det">${esc(r[1]) || '<i>(sans détail)</i>'}${split?'<span class="split">2e chambre</span>':''}${!split && r[3] && !S.layout[i]?'<span class="aconf">à confirmer</span>':''}${r[5]?'<span class="nv">nouvelle</span>':''}</td>
+    <td class="det">${esc(r[1]) || '<i>(sans détail)</i>'}${split?'<span class="split">2e chambre</span>':''}${!split && r[3] && !S.layout[i]?'<span class="aconf">à confirmer</span>':''}${vraieNv(r[5])?'<span class="nv">nouvelle</span>':''}</td>
     <td><div class="qty">
       <button class="qbtn" data-d="-1">−</button>
       <input class="qin${compte(e)?' rempli':''}" inputmode="numeric" value="${esc(e.q)}" placeholder="qté">
@@ -320,7 +323,7 @@ function render() {
   let html = '', jump = '';
   CHAMBRES.forEach((c, ci) => {
     const lignes = [];
-    REFS.forEach((r, i) => { if (chDe(i) === c.id) lignes.push({key:'p'+i, i, e:prim(i), split:false}); });
+    REFS.forEach((r, i) => { if (chDe(i) === c.id && dansListe(i)) lignes.push({key:'p'+i, i, e:prim(i), split:false}); });
     S.x.forEach((e, xi) => { if (e && e.ch === c.id) lignes.push({key:'x'+xi, i:e.i, e, split:true}); });
     lignes.sort((a, b) => REFS[a.i][0].localeCompare(REFS[b.i][0], 'fr') || REFS[a.i][1].localeCompare(REFS[b.i][1], 'fr', { numeric: true }) || (a.split - b.split));
     const nbFait = lignes.filter(l => compte(l.e)).length;
@@ -354,8 +357,9 @@ function render() {
 function majStat() {
   const tous = REFS.map((r, i) => prim(i)).concat(S.x.filter(Boolean));
   const n = REFS.filter((r, i) => compte(prim(i)) || S.x.some(e => e && e.i === i && compte(e))).length;
-  const na = REFS.filter((r, i) => chDe(i) === 'NA').length;
-  $('#stat').textContent = `${n} / ${REFS.length} références comptées` + (na ? ` · ${na} à affecter` : '')
+  const na = REFS.filter((r, i) => chDe(i) === 'NA' && dansListe(i)).length;
+  const nbListe = REFS.filter((r, i) => dansListe(i)).length;
+  $('#stat').textContent = `${n} / ${nbListe} références comptées` + (na ? ` · ${na} à affecter` : '')
     + ` · ${tous.filter(compte).reduce((s, e) => s + (+e.q || 0), 0)} colis`;
 }
 
@@ -432,7 +436,7 @@ function telecharger(nom, lignes) {
 }
 $('#exp-releve').onclick = () => {
   const out = [['DATE_RELEVE','PRODUIT','DETAIL','CHAMBRE','QUANTITE','DATE_ENTREE','COMMENTAIRE','FAMILLE','CATEGORIE','CALIBRE','COULEUR','EMBALLAGE','MARQUE','CLIENT','PALETTE','NOUVELLE']];
-  const ajoute = (i, ch, e) => { const n = REFS[i][5]; const c = n ? champsRef(n) : {};
+  const ajoute = (i, ch, e) => { const n = vraieNv(REFS[i][5]); const c = n ? champsRef(n) : {};
     out.push([S.date, REFS[i][0], REFS[i][1], LIB[ch] ?? ch, e.q, e.d, e.c, c.famille, c.categorie, c.calibre, c.couleur, c.emballage, c.marque, c.client, c.palette, n ? 'oui' : '']); };
   REFS.forEach((r, i) => { if (compte(prim(i))) ajoute(i, chDe(i), prim(i)); });
   S.x.forEach(e => { if (e && compte(e)) ajoute(e.i, e.ch, e); });
@@ -483,7 +487,7 @@ $('#cloturer').onclick = async ev => {
   const b = ev.currentTarget;
   const lignes = [];
   const ajoute = (i, ch, e) => lignes.push({ produit: REFS[i][0], detail: REFS[i][1], chambre: LIB[ch] ?? ch, quantite: e.q, date_entree: e.d, commentaire: e.c,
-    nouvelle: REFS[i][5] ? champsRef(REFS[i][5]) : null });
+    nouvelle: vraieNv(REFS[i][5]) ? champsRef(REFS[i][5]) : null });
   REFS.forEach((r, i) => { if (compte(prim(i))) ajoute(i, chDe(i), prim(i)); });
   S.x.forEach(e => { if (e && compte(e)) ajoute(e.i, e.ch, e); });
   if (!lignes.length) return message('Rien de compté : rien à clôturer.', true);
@@ -505,6 +509,23 @@ $('#cloturer').onclick = async ev => {
 };
 
 /* ---------- au démarrage : répartition SharePoint + reprise de la tournée ---------- */
+/* liste du jour = colonnes A/B du fichier STOCK UNIVERT MAJ 2025, envoyée par la page de report (emplacement réservé du 01/01/2000) */
+async function chargerListe() {
+  try {
+    const r = await appel('/pilot-stock-charger?date=' + encodeURIComponent('01/01/2000'));
+    const et = r.sauvegarde && r.sauvegarde.etat;
+    if (!et || !Array.isArray(et.liste) || !et.liste.length) return;
+    const connues = new Set(REFS.map(x => cleRef(x[0], x[1])));
+    et.liste.forEach(([a, b]) => {
+      a = String(a || '').trim(); b = String(b || '').trim();
+      if (!a || connues.has(cleRef(a, b))) return;
+      S.nouvelles.push({ E: a, detail: b, ch: 'NA', D: '', liste: true }); connues.add(cleRef(a, b));
+    });
+    integrerNouvelles();
+    S.liste = { maj: et.maj || '', cles: et.liste.map(([a, b]) => cleRef(a, b)) };
+    LISTE = new Set(S.liste.cles); saveLocal();
+  } catch (e) { /* hors ligne : on garde la dernière liste connue */ }
+}
 async function chargerRepartition() {
   try {
     await envoyerChambres();   // d'abord pousser les changements locaux pas encore envoyés
@@ -585,7 +606,7 @@ $('#nf-ok').onclick = () => {
 };
 window.addEventListener('online', () => { sync(); envoyerChambres(); });
 render();
-chargerRepartition().then(chargerServeur);
+chargerListe().then(chargerRepartition).then(chargerServeur);
 </script>
 </body>
 </html>

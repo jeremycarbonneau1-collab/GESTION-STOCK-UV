@@ -47,10 +47,13 @@ pre{white-space:pre-wrap;font:12.5px/1.5 Consolas,"Courier New",monospace;backgr
 
 <div class="carte" id="auto">
   <h2>Mettre à jour le fichier STOCK</h2>
-  <div class="aide">Après la clôture de la tournée sur la tablette et ton copier-coller habituel de A et B dans <b>STOCK UNIVERT MAJ 2025 .xlsx</b> :
+  <div class="aide"><b>📋 Envoyer la liste</b> (la veille, après le copier-coller de A et B, fichier fermé) : la tablette affichera exactement
+    les références de la feuille STOCK ; les nouvelles arrivent dans « À affecter ».<br>
+    <b>⟳ Mettre à jour</b> : après la clôture de la tournée sur la tablette et ton copier-coller habituel de A et B dans <b>STOCK UNIVERT MAJ 2025 .xlsx</b> :
     <b>enregistre et ferme ce fichier dans Excel</b>, puis clique sur le bouton. La page prend le dernier relevé clôturé et l'écrit
     directement dans le fichier, à sa place (C quantité, D date, E commentaire ; nouvelles références ajoutées tout en bas).</div>
   <div class="actions" style="align-items:center">
+    <button class="btn gros sec" id="liste">📋 Envoyer la liste à la tablette</button>
     <button class="btn gros" id="maj">⟳ Mettre à jour STOCK UNIVERT MAJ 2025</button>
     <span class="aide" id="fic-info"></span>
   </div>
@@ -809,6 +812,58 @@ $('#maj').onclick = async () => {
   } catch (e) {
     console.warn('maj', e && e.name, e && e.message);
     if (e && e.name === 'AbortError') { res.innerHTML = ''; }
+    else msg('errbox', '⚠ ' + (e && e.message ? e.message : e));
+  } finally { bt.disabled = false; bt.textContent = lib; }
+};
+
+/* ---------------- envoi de la liste A/B à la tablette ---------------- */
+const URL_SAUVER = 'https://n8n.srv1745823.hstgr.cloud/webhook/pilot-stock-sauver';
+async function lireListe(buf) {
+  const cl = await new Classeur().charger(buf);
+  const part = cl.partFeuille('STOCK');
+  if (!part) throw new Error('Feuille « STOCK » introuvable dans ce fichier.');
+  const doc = parse(await cl.zip.file(part).async('string'));
+  const rows = new Map(tous(doc, 'row').map(r => [+r.getAttribute('r'), r]));
+  const val = (r, col) => { const row = rows.get(r); const c = row ? enfants(row, 'c').find(c => c.getAttribute('r') === col + r) : null; return c ? cl.valeur(c) : null; };
+  let entete = 2;
+  for (let r = 1; r <= 5; r++) if (norm(val(r, 'B')) === 'LIBELLE') { entete = r; break; }
+  const liste = [], vus = new Set();
+  for (const r of [...rows.keys()].sort((a, b) => a - b)) {
+    if (r <= entete) continue;
+    const a = val(r, 'A'), b = val(r, 'B');
+    if (typeof a !== 'string' || !a.trim() || /^=/.test(a)) continue;
+    const k = norm(a) + '|' + norm(b); if (vus.has(k)) continue; vus.add(k);
+    liste.push([a.trim(), String(b ?? '').trim()]);
+  }
+  return liste;
+}
+async function poigneeStock(mode) {
+  let h = await lirePoigneeMemo();
+  if (h && (await h.requestPermission({ mode })) !== 'granted') h = null;
+  if (!h) {
+    [h] = await showOpenFilePicker({ id: 'stock-univert', types: [{ description: 'Classeur Excel', accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] } }] });
+    if (h.name !== NOM_ATTENDU && !confirm('Le fichier choisi s\'appelle « ' + h.name + ' » et non « ' + NOM_ATTENDU + ' ». Continuer ?')) throw new Error('Annulé.');
+    await memoriserPoignee(h); afficherFichierMemo();
+  }
+  return h;
+}
+if (!window.showOpenFilePicker) $('#liste').disabled = true;
+$('#liste').onclick = async () => {
+  const bt = $('#liste'), res = $('#auto-res'), lib = bt.textContent;
+  const msg = (cls, html) => res.innerHTML = '<div class="' + cls + '">' + html + '</div>';
+  bt.disabled = true;
+  try {
+    const h = await poigneeStock('read');
+    bt.textContent = '⏳ Lecture du fichier…';
+    const liste = await lireListe(await (await h.getFile()).arrayBuffer());
+    if (liste.length < 20 && !confirm('Seulement ' + liste.length + ' référence(s) trouvée(s) dans la feuille STOCK. Envoyer quand même ?')) throw new Error('Annulé.');
+    bt.textContent = '⏳ Envoi à la tablette…';
+    const rep = await fetch(URL_SAUVER, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: '01/01/2000', appareil: 'page de report', etat: { liste, maj: new Date().toISOString(), fichier: h.name } }) });
+    if (!rep.ok) throw new Error('Envoi refusé par le serveur (code ' + rep.status + ').');
+    msg('okbox', '✅ Liste envoyée : <b>' + liste.length + ' références</b> de la feuille STOCK. Elle s\'affichera à la prochaine ouverture de l\'outil tablette (recharger la page si elle est déjà ouverte).');
+  } catch (e) {
+    if (e && e.name === 'AbortError') res.innerHTML = '';
     else msg('errbox', '⚠ ' + (e && e.message ? e.message : e));
   } finally { bt.disabled = false; bt.textContent = lib; }
 };
