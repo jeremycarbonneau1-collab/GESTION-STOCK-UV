@@ -23,6 +23,9 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 "Segoe UI",system-ui,-a
 .depot.survol{border-color:var(--brand-2);background:#F1F7F2}
 .depot input{display:none}
 .methode{margin-top:10px;padding:10px 14px;background:#eef7ee;border-radius:8px;font-size:14px}.methode ol{margin:6px 0 0 18px;padding:0}
+.gros{font-size:18px;padding:16px 26px}.sous{margin-top:14px;padding-top:12px;border-top:1px solid #e3e3e3}
+summary{cursor:pointer}
+#auto-res{margin-top:14px}.okbox{background:#eef7ee;border-radius:8px;padding:12px 14px}.errbox{background:#fdecec;border-radius:8px;padding:12px 14px}
 .aide{font-size:12.5px;color:var(--muted)}
 label.opt{display:flex;gap:8px;align-items:flex-start;margin:6px 0;font-size:13.5px}
 label.opt input{margin-top:3px;width:18px;height:18px}
@@ -42,14 +45,27 @@ pre{white-space:pre-wrap;font:12.5px/1.5 Consolas,"Courier New",monospace;backgr
 </div></div>
 <div class="wrap">
 
-<div class="carte">
+<div class="carte" id="auto">
+  <h2>Mettre à jour le fichier STOCK</h2>
+  <div class="aide">Après la clôture de la tournée sur la tablette et ton copier-coller habituel de A et B dans <b>STOCK UNIVERT MAJ 2025 .xlsx</b> :
+    <b>enregistre et ferme ce fichier dans Excel</b>, puis clique sur le bouton. La page prend le dernier relevé clôturé et l'écrit
+    directement dans le fichier, à sa place (C quantité, D date, E commentaire ; nouvelles références ajoutées tout en bas).</div>
+  <div class="actions" style="align-items:center">
+    <button class="btn gros" id="maj">⟳ Mettre à jour STOCK UNIVERT MAJ 2025</button>
+    <span class="aide" id="fic-info"></span>
+  </div>
+  <div id="auto-res"></div>
+</div>
+
+<details class="carte" id="manuel"><summary><b>Mode manuel</b> (sans connexion : relevé CSV + fichier à déposer)</summary>
+<div class="sous">
   <h2><span class="etape">1</span>Le relevé du jour (CSV)</h2>
   <div class="aide">L'archive de la tournée : SharePoint › PILOT GESTION STOCK › ARCHIVES › année › mois › <b>releve_stock_AAAA-MM-JJ.csv</b>
     (ou l'« Export CSV (secours) » de la tablette).</div>
   <label class="depot" id="d-csv"><input type="file" id="f-csv" accept=".csv,text/csv"><span>Déposer le fichier ici ou cliquer</span></label>
 </div>
 
-<div class="carte">
+<div class="sous">
   <h2><span class="etape">2</span>Le fichier STOCK UNIVERT MAJ 2025 (.xlsx)</h2>
   <div class="aide">Après ton copier-coller habituel des colonnes A et B du TABLEAU DES VENTES dans la feuille <b>STOCK</b>.
     La page remplit C (quantité frigo), D (date) et E (commentaires) sur la bonne ligne, retrouvée par produit + libellé.
@@ -58,13 +74,15 @@ pre{white-space:pre-wrap;font:12.5px/1.5 Consolas,"Courier New",monospace;backgr
   <label class="depot" id="d-xlsm"><input type="file" id="f-xlsm" accept=".xlsx,.xlsm"><span>Déposer le fichier ici ou cliquer</span></label>
 </div>
 
-<div class="carte">
+<div class="sous">
   <h2><span class="etape">3</span>Options</h2>
   <label class="opt"><input type="checkbox" id="o-vider" checked><span><b>Repartir d'une feuille vierge</b> : vider C, D et E sur toutes les lignes avant
     de reporter la tournée (comme une nouvelle feuille papier : une référence non comptée = pas de stock).
     Décocher pour ne remplacer que les lignes comptées et garder les autres telles quelles.</span></label>
   <div class="actions"><button class="btn" id="go" disabled>Préparer le report</button></div>
 </div>
+
+</details>
 
 <div class="carte" id="res" style="display:none">
   <h2><span class="etape">4</span>Résultat</h2>
@@ -732,6 +750,67 @@ $('#go').onclick = async () => {
     $('#res-titre').innerHTML = '<span class="err">⚠ ' + String(e.message).split('\n')[0] + '</span><br><span class="aide">Si le fichier est ouvert dans Excel, fermez-le puis réessayez. Sinon, envoyez une capture de ce message.</span>';
     $('#rapport').textContent = e.message;
   } finally { b.disabled = false; b.textContent = 'Préparer le report'; }
+};
+
+/* ---------------- mise à jour automatique ---------------- */
+const URL_DERNIER = 'https://n8n.srv1745823.hstgr.cloud/webhook/pilot-stock-dernier-releve';
+const NOM_ATTENDU = 'STOCK UNIVERT MAJ 2025 .xlsx';
+const idb = (mode, fn) => new Promise((ok, ko) => {
+  const r = indexedDB.open('univert-bascule', 1);
+  r.onupgradeneeded = () => r.result.createObjectStore('k');
+  r.onerror = () => ko(r.error);
+  r.onsuccess = () => { const tx = r.result.transaction('k', mode); const q = fn(tx.objectStore('k')); tx.oncomplete = () => ok(q && q.result); tx.onerror = () => ko(tx.error); };
+});
+const lirePoigneeMemo = () => idb('readonly', st => st.get('stock')).catch(() => null);
+const memoriserPoignee = h => idb('readwrite', st => { try { return st.put(h, 'stock'); } catch (_) { return null; } }).catch(() => {});
+const oublierPoignee = () => idb('readwrite', st => st.delete('stock')).catch(() => {});
+async function afficherFichierMemo() {
+  const h = await lirePoigneeMemo();
+  $('#fic-info').innerHTML = h ? 'Fichier : <b>' + h.name + '</b> · <a href="#" id="changer">changer</a>' : 'Au premier clic, choisis le fichier dans P:\\COVIAL\\Gestion des Stocks\\ (il sera retenu).';
+  const c = $('#changer'); if (c) c.onclick = async e => { e.preventDefault(); await oublierPoignee(); afficherFichierMemo(); };
+}
+if (!window.showOpenFilePicker) {
+  $('#maj').disabled = true;
+  $('#fic-info').textContent = 'Ouvre cette page dans Chrome ou Edge pour écrire directement dans le fichier (sinon, utilise le mode manuel ci-dessous).';
+} else afficherFichierMemo();
+
+$('#maj').onclick = async () => {
+  const bt = $('#maj'), res = $('#auto-res');
+  const msg = (cls, html) => res.innerHTML = '<div class="' + cls + '">' + html + '</div>';
+  bt.disabled = true; const lib = bt.textContent;
+  try {
+    let h = await lirePoigneeMemo();
+    if (h && (await h.requestPermission({ mode: 'readwrite' })) !== 'granted') h = null;
+    if (!h) {
+      [h] = await showOpenFilePicker({ id: 'stock-univert', types: [{ description: 'Classeur Excel', accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] } }] });
+      if (h.name !== NOM_ATTENDU && !confirm('Le fichier choisi s\'appelle « ' + h.name + ' » et non « ' + NOM_ATTENDU + ' ».\nLe TABLEAU DES VENTES lit « ' + NOM_ATTENDU + ' ». Continuer quand même ?')) throw new Error('Annulé.');
+      if ((await h.requestPermission({ mode: 'readwrite' })) !== 'granted') throw new Error('Autorisation d\'écriture refusée par le navigateur.');
+      await memoriserPoignee(h); afficherFichierMemo();
+    }
+    bt.textContent = '⏳ Lecture du dernier relevé…';
+    const rep = await fetch(URL_DERNIER, { cache: 'no-store' });
+    let j = null; try { j = await rep.json(); } catch (_) {}
+    if (!rep.ok || !j || !j.csv) throw new Error('Impossible de récupérer le dernier relevé (serveur n8n). ' + (j && j.message ? j.message : 'Code ' + rep.status));
+    bt.textContent = '⏳ Écriture dans le fichier…';
+    const f = await h.getFile();
+    const r = await remplirStock(j.csv, await f.arrayBuffer(), f.name, j.fichier, { vider: true });
+    let w;
+    try { w = await h.createWritable(); }
+    catch (e) { throw new Error('Le fichier est ouvert (dans Excel ou par quelqu\'un d\'autre) : ferme-le puis reclique.'); }
+    await w.write(r.blob); await w.close();
+    const dRel = (/du (\d{2}\/\d{2}\/\d{4})/.exec(r.rapport) || [])[1] || '?';
+    const aujourdhui = new Date().toLocaleDateString('fr-FR');
+    const nouv = r.rapport.split('\n').filter(l => /^  ligne \d+ :/.test(l) && /NOUVELLES/.test(r.rapport));
+    msg('okbox', '✅ <b>' + f.name + '</b> mis à jour avec le relevé du <b>' + dRel + '</b>'
+      + (dRel !== aujourdhui ? ' <span class="err">(attention : ce n\'est pas le relevé d\'aujourd\'hui)</span>' : '')
+      + ' : ' + r.nb + ' référence(s) comptée(s).'
+      + (r.ajoutees ? '<br><b>' + r.ajoutees + ' nouvelle(s) référence(s)</b> ajoutée(s) en bas de la feuille STOCK, à saisir à la main dans le TABLEAU DES VENTES :<pre>' + nouv.join('\n').replace(/</g, '&lt;') + '</pre>' : '')
+      + '<br>Tu peux ouvrir le TABLEAU DES VENTES : il lira les nouvelles valeurs (Actualiser si Excel le demande).');
+  } catch (e) {
+    console.warn('maj', e && e.name, e && e.message);
+    if (e && e.name === 'AbortError') { res.innerHTML = ''; }
+    else msg('errbox', '⚠ ' + (e && e.message ? e.message : e));
+  } finally { bt.disabled = false; bt.textContent = lib; }
 };
 </script>
 </body>
