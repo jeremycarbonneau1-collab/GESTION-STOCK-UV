@@ -148,7 +148,7 @@ tr.ref.flash td{animation:flash 2.4s ease-out}
   Quantité vide = pas comptée (le stock frigo reste tel quel) ; <b>0</b> = compté vide.
   Une référence rangée dans deux chambres : bouton <b>＋</b> pour ajouter une ligne dans l'autre chambre.
   La saisie est <b>sauvegardée sur la tablette</b> au fur et à mesure.
-  Généré depuis <b>TABLEAU_DES_VENTES_MAJ_3.xlsm</b> le 20/11/2026.</div>
+  Généré depuis <b>TABLEAU_DES_VENTES_MAJ_3.xlsm</b> le 22/11/2026.</div>
 
 <div class="jump no-print" id="jump"></div>
 <div class="entete-impr" id="entete-impr"></div>
@@ -426,7 +426,11 @@ let tq; $('#q').addEventListener('input', ev => { clearTimeout(tq); tq = setTime
 const auj = () => { const d = new Date(); return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear(); };
 if (!S.date) S.date = auj();
 $('#d-jour').value = S.date;
-$('#d-jour').addEventListener('change', ev => { S.date = ev.target.value.trim(); save(); chargerServeur(); });
+$('#d-jour').addEventListener('change', async ev => {
+  // changer de date = ouvrir la tournée de cette date (sans écraser celle enregistrée sur SharePoint)
+  if (enAttente) { clearTimeout(tSave); await sync(); }
+  S.date = ev.target.value.trim(); S.p = {}; S.x = []; S.cloture = null; S.maj = ''; saveLocal(); render(); chargerServeur();
+});
 if (!S.appareil) S.appareil = 'tablette';
 $('#appareil').value = S.appareil;
 $('#appareil').addEventListener('change', ev => { S.appareil = ev.target.value.trim() || 'tablette'; save(); });
