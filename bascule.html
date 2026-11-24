@@ -603,7 +603,7 @@ async function remplirStock(csvTxt, buf, nomFichier, nomCsv, opt) {
     const total = somme(r.ch);
     const dates = r.dates.map(d => serieExcel(d, dateReleve)).filter(x => x !== null).sort((a, b) => a - b);
     r.dates.forEach(d => { if (serieExcel(d, dateReleve) === null) sansDate.push(r.produit + ' : « ' + d + ' »'); });
-    let comm = [...r.comms, ...r.dates.filter(d => serieExcel(d, dateReleve) === null), ...(r.dates.filter(d => serieExcel(d, dateReleve) !== null).length > 1 ? ['dates : ' + r.dates.filter(d => serieExcel(d, dateReleve) !== null).sort((x, y) => serieExcel(x, dateReleve) - serieExcel(y, dateReleve)).join(' · ')] : [])].join(' · ');
+    let comm = [...r.comms, ...r.dates.filter(d => serieExcel(d, dateReleve) === null), ...(r.dates.filter(d => serieExcel(d, dateReleve) !== null).length > 1 ? ['autres dates : ' + r.dates.filter(d => serieExcel(d, dateReleve) !== null).sort((x, y) => serieExcel(x, dateReleve) - serieExcel(y, dateReleve)).slice(1).join(' · ')] : [])].join(' · ');
     let ligne = index.get(cle), nouvelle = false;
     if (!ligne) {
       ligne = derniere + 1 + ajoutees.length; nouvelle = true;
@@ -643,7 +643,7 @@ async function remplirStock(csvTxt, buf, nomFichier, nomCsv, opt) {
   const parLigne = new Map();
   for (const [cle, r] of agr) {
     const dates = r.dates.map(d => serieExcel(d, dateReleve)).filter(x => x !== null).sort((a, b) => a - b);
-    const comm = [...r.comms, ...r.dates.filter(d => serieExcel(d, dateReleve) === null), ...(r.dates.filter(d => serieExcel(d, dateReleve) !== null).length > 1 ? ['dates : ' + r.dates.filter(d => serieExcel(d, dateReleve) !== null).sort((x, y) => serieExcel(x, dateReleve) - serieExcel(y, dateReleve)).join(' · ')] : [])].join(' · ');
+    const comm = [...r.comms, ...r.dates.filter(d => serieExcel(d, dateReleve) === null), ...(r.dates.filter(d => serieExcel(d, dateReleve) !== null).length > 1 ? ['autres dates : ' + r.dates.filter(d => serieExcel(d, dateReleve) !== null).sort((x, y) => serieExcel(x, dateReleve) - serieExcel(y, dateReleve)).slice(1).join(' · ')] : [])].join(' · ');
     parLigne.set(cle, { total: somme(r.ch), date: dates.length ? dates[0] : '', comm, r });
   }
   const lignesCDE = [];
