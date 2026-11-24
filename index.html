@@ -71,6 +71,10 @@ textarea.cin{height:auto;min-height:64px;padding:6px 8px;resize:vertical;line-he
 #toast.on{opacity:1}
 tr.ref.flash td{animation:flash 2.4s ease-out}
 @keyframes flash{0%,40%{background:#FFF3C4}100%{background:inherit}}
+.pbtn{height:40px;min-width:40px;border-radius:9px;border:1.5px solid var(--line);background:#fff;font-size:18px;cursor:pointer;filter:grayscale(1);opacity:.55}
+.pbtn.on{filter:none;opacity:1;border-color:#DD6B20;background:#FFF3E6}
+.pous{display:inline-block;font-size:9.5px;font-weight:750;color:#fff;background:#DD6B20;border-radius:5px;padding:1px 6px;margin-left:7px}
+.chip.pousser.on{border-color:#DD6B20;background:#DD6B20}
 .nv{display:inline-block;font-size:9.5px;font-weight:750;color:#fff;background:#2B6CB0;border-radius:5px;padding:1px 6px;margin-left:7px}
 #modal{position:fixed;inset:0;background:rgba(20,30,25,.45);display:none;align-items:flex-start;justify-content:center;z-index:30;overflow:auto;padding:24px 10px}
 #modal.on{display:flex}
@@ -141,14 +145,16 @@ tr.ref.flash td{animation:flash 2.4s ease-out}
   <button class="chip on" data-f="tout">Tout</button>
   <button class="chip" data-f="afaire">À compter</button>
   <button class="chip" data-f="fait">Comptés</button>
+  <button class="chip pousser" data-f="pousser" title="Produits que le commerce doit pousser : récap envoyé chaque matin">🔥 À pousser <span id="nb-pousser"></span></button>
 </div>
 
 <div class="note no-print">Une ligne = <b>une référence de l'onglet « stock »</b> du TABLEAU DES VENTES
   (produit + emballage, calibre, marque, palette), avec la même clé que les vendeurs.
   Quantité vide = pas comptée (le stock frigo reste tel quel) ; <b>0</b> = compté vide.
   Une référence rangée dans deux chambres : bouton <b>＋</b> pour ajouter une ligne dans l'autre chambre.
+  Bouton <b>🔥</b> : produit <b>à pousser</b> par le commerce (récap par mail chaque matin, jusqu'à ce qu'on le décoche).
   La saisie est <b>sauvegardée sur la tablette</b> au fur et à mesure.
-  Généré depuis <b>TABLEAU_DES_VENTES_MAJ_3.xlsm</b> le 22/11/2026.</div>
+  Généré depuis <b>TABLEAU_DES_VENTES_MAJ_3.xlsm</b> le 24/11/2026.</div>
 
 <div class="jump no-print" id="jump"></div>
 <div class="entete-impr" id="entete-impr"></div>
@@ -213,6 +219,7 @@ const CLE = 'univert-releve-stock-v2';
 let S = {date:'', p:{}, x:[], layout:{}, cons:{}};
 try { const s = JSON.parse(localStorage.getItem(CLE) || 'null'); if (s) S = Object.assign(S, s); } catch (e) {}
 S.nouvelles = S.nouvelles || [];
+S.pousser = S.pousser || {};   // clé produit|détail -> {produit, detail, ch, depuis, raison}
 /* une nouvelle référence = {E, D, F, G, H, I, J, K, M, detail, ch} ; ajoutée après les références de base */
 const cleBase = new Set(REFS.map(r => cleRef(r[0], r[1])));
 function integrerNouvelles() {
@@ -300,7 +307,7 @@ const optionsCh = cur => CHAMBRES.map(k => `<option value="${k.id}"${k.id===cur?
 function ligneRef(key, i, e, split) {
   const r = REFS[i];
   return `<tr class="ref${compte(e)?' fait':''}" data-k="${key}">
-    <td class="det">${esc(r[1]) || '<i>(sans détail)</i>'}${split?'<span class="split">2e chambre</span>':''}${!split && r[3] && !S.layout[i]?'<span class="aconf">à confirmer</span>':''}${vraieNv(r[5])?'<span class="nv">nouvelle</span>':''}</td>
+    <td class="det">${esc(r[1]) || '<i>(sans détail)</i>'}${split?'<span class="split">2e chambre</span>':''}${!split && r[3] && !S.layout[i]?'<span class="aconf">à confirmer</span>':''}${vraieNv(r[5])?'<span class="nv">nouvelle</span>':''}${!split && S.pousser[cleRef(r[0], r[1])]?'<span class="pous">🔥 à pousser</span>':''}</td>
     <td><div class="qty">
       <button class="qbtn" data-d="-1">−</button>
       <input class="qin${compte(e)?' rempli':''}" inputmode="numeric" value="${esc(e.q)}" placeholder="qté">
@@ -310,13 +317,15 @@ function ligneRef(key, i, e, split) {
     <td class="hide-m"><select class="sel csel${e.c?' rempli':''}">${optionsComm(e.c)}</select></td>
     <td class="no-print"><select class="sel chsel" style="max-width:96px">${optionsCh(split ? e.ch : chDe(i))}</select></td>
     <td class="no-print">${split ? '<button class="mini" data-act="del" title="Supprimer cette ligne">✕</button>'
-                                 : '<button class="mini" data-act="split" title="Compter aussi dans une autre chambre">＋</button>'}</td>
+                                 : '<button class="mini" data-act="split" title="Compter aussi dans une autre chambre">＋</button>'
+                                   + ` <button class="pbtn${S.pousser[cleRef(r[0], r[1])] ? ' on' : ''}" data-act="pousser" title="À pousser par le commerce">🔥</button>`}</td>
   </tr>`;
 }
 
 function visible(i, e) {
   if (filtre === 'fait' && !compte(e)) return false;
   if (filtre === 'afaire' && compte(e)) return false;
+  if (filtre === 'pousser' && !S.pousser[cleRef(REFS[i][0], REFS[i][1])]) return false;
   if (!recherche) return true;
   return (REFS[i][0] + ' ' + REFS[i][1] + ' ' + REFS[i][4]).toUpperCase().includes(recherche);
 }
@@ -347,7 +356,7 @@ function render() {
         <span class="tot">${nbFait} / ${lignes.length} référence${lignes.length>1?'s':''} comptée${nbFait>1?'s':''}</span></div>
       ${vis.length ? `<table><thead><tr><th>Référence (détail ventes)</th><th style="width:212px">Qté comptée (colis)</th>
         <th style="width:150px">Date d'entrée</th><th class="hide-m" style="width:260px">Commentaire</th>
-        <th class="no-print" style="width:100px">Chambre</th><th class="no-print" style="width:52px"></th></tr></thead>
+        <th class="no-print" style="width:100px">Chambre</th><th class="no-print" style="width:100px"></th></tr></thead>
         <tbody>${corps}</tbody></table>`
       : `<div class="vide">${lignes.length ? 'Aucune ligne pour ce filtre.' : 'Rien d\'affecté ici — utilisez le menu « Chambre » d\'une référence pour l\'amener ici.'}</div>`}
     </div>`;
@@ -358,6 +367,7 @@ function render() {
 }
 
 function majStat() {
+  majNbPousser();
   const tous = REFS.map((r, i) => prim(i)).concat(S.x.filter(Boolean));
   const n = REFS.filter((r, i) => compte(prim(i)) || S.x.some(e => e && e.i === i && compte(e))).length;
   const na = REFS.filter((r, i) => chDe(i) === 'NA' && dansListe(i)).length;
@@ -385,6 +395,8 @@ box.addEventListener('click', ev => {
     S.x.push({i, ch: chDe(i) === 'A' ? 'B' : 'A', q:'', d:'', c:''}); save(); render();
   } else if (b.dataset.act === 'del') {
     S.x[+k.slice(1)] = null; save(); render();
+  } else if (b.dataset.act === 'pousser') {
+    basculerPousser(+k.slice(1));
   }
 });
 box.addEventListener('input', ev => {
@@ -534,6 +546,41 @@ async function chargerListe() {
     LISTE = new Set(S.liste.cles); saveLocal();
   } catch (e) { /* hors ligne : on garde la dernière liste connue */ }
 }
+/* ---------- produits à pousser (emplacement réservé du 02/01/2000, récap mail chaque matin) ---------- */
+let envoiPousser = null;
+function majNbPousser() { const n = Object.keys(S.pousser).length; const el = document.getElementById('nb-pousser'); if (el) el.textContent = n ? '(' + n + ')' : ''; }
+function basculerPousser(i) {
+  const k = cleRef(REFS[i][0], REFS[i][1]);
+  if (S.pousser[k]) {
+    delete S.pousser[k];
+    toast(`<b>${esc(REFS[i][0])}</b> n'est plus à pousser`);
+  } else {
+    const raison = (window.prompt('🔥 ' + REFS[i][0] + '\n' + REFS[i][1] + '\n\nPourquoi le pousser ? (facultatif : mûrit vite, fin de lot, gros stock…)', '') ?? null);
+    if (raison === null) return;   // annulé
+    S.pousser[k] = { produit: REFS[i][0], detail: REFS[i][1], ch: LIB[chDe(i)] ?? chDe(i), depuis: new Date().toISOString(), raison: raison.trim(), par: S.appareil || '' };
+    toast(`🔥 <b>${esc(REFS[i][0])}</b> ajouté aux produits à pousser`);
+  }
+  S.pousserAttente = true; saveLocal(); render(); envoyerPousser();
+}
+async function envoyerPousser() {
+  if (envoiPousser) return envoiPousser;
+  envoiPousser = (async () => {
+    try {
+      await appel('/pilot-stock-sauver', { method: 'POST', body: JSON.stringify({ date: '02/01/2000', appareil: S.appareil || 'tablette', etat: { items: S.pousser, maj: new Date().toISOString() } }) });
+      S.pousserAttente = false; saveLocal();
+    } catch (e) { toast('⚠ Hors ligne : « à pousser » gardé sur la tablette, renvoi automatique'); setTimeout(envoyerPousser, 30000); }
+    finally { envoiPousser = null; }
+  })();
+  return envoiPousser;
+}
+async function chargerPousser() {
+  try {
+    if (S.pousserAttente) { await envoyerPousser(); return; }
+    const r = await appel('/pilot-stock-charger?date=' + encodeURIComponent('02/01/2000'));
+    const et = r.sauvegarde && r.sauvegarde.etat;
+    if (et && et.items && typeof et.items === 'object') { S.pousser = et.items; saveLocal(); }
+  } catch (e) { /* hors ligne : on garde la liste locale */ }
+}
 async function chargerRepartition() {
   try {
     await envoyerChambres();   // d'abord pousser les changements locaux pas encore envoyés
@@ -612,9 +659,9 @@ $('#nf-ok').onclick = () => {
   if (tr) { tr.classList.add('flash'); tr.scrollIntoView({ behavior: 'smooth', block: 'center' }); tr.querySelector('.qin').focus(); }
   toast(`✅ Nouvelle référence <b>${esc(c.E)}</b> créée — saisissez la quantité`);
 };
-window.addEventListener('online', () => { sync(); envoyerChambres(); });
+window.addEventListener('online', () => { sync(); envoyerChambres(); if (S.pousserAttente) envoyerPousser(); });
 render();
-chargerListe().then(chargerRepartition).then(chargerServeur);
+chargerListe().then(chargerPousser).then(chargerRepartition).then(chargerServeur);
 </script>
 </body>
 </html>
