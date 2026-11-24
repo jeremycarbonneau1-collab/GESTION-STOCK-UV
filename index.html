@@ -183,11 +183,12 @@ tr.ref.fait-sansdate{box-shadow:inset 4px 0 0 var(--crit)}
 <datalist id="dl-E"></datalist><datalist id="dl-D"></datalist><datalist id="dl-F"></datalist><datalist id="dl-G"></datalist>
 <datalist id="dl-H"></datalist><datalist id="dl-I"></datalist><datalist id="dl-J"></datalist><datalist id="dl-K"></datalist>
 <div id="mdates"><div class="box">
-  <h3>Date(s) d'entrée</h3>
+  <h3>Date(s) d'entrée et colis par date</h3>
   <div class="sous" id="md-ref"></div>
   <div class="grille" id="md-grille"></div>
   <div class="autre"><input id="md-autre" placeholder="Autre date (jj/mm)" inputmode="numeric"><button class="btn sec" id="md-ajout" type="button">Ajouter</button></div>
   <div class="choisies" id="md-choisies"></div>
+  <div id="md-err" style="color:var(--crit);font-weight:700;font-size:13px;min-height:16px"></div>
   <div class="act"><button class="btn sec" id="md-vider" type="button">Effacer</button><span><button class="btn sec" id="md-annuler" type="button">Annuler</button> <button class="btn" id="md-ok" type="button">OK</button></span></div>
 </div></div>
 <div id="modal"><div class="box">
@@ -323,8 +324,12 @@ function cleDate(t) {
   let d = new Date(an, +m[2] - 1, +m[1]); if (!m[3] && d - auj0 > 864e5) d = new Date(an - 1, +m[2] - 1, +m[1]);
   return d.getTime();
 }
-const listeDates = d => String(d || '').split(/\s*[·,;+]\s*|\s+et\s+/).map(x => x.trim()).filter(Boolean);
-const joindreDates = arr => [...new Set(arr)].sort((a, b) => cleDate(a) - cleDate(b)).join(SEP_DATES);
+/* format d'une ligne à plusieurs dates : « 05/11:10 · 12/11:5 » (date:colis) — le total reste dans la quantité */
+const lotsDe = d => String(d || '').split(/\s*[·,;+]\s*|\s+et\s+/).map(x => x.trim()).filter(Boolean)
+  .map(x => { const m = /^(.+?)\s*[:=]\s*(\d+)$/.exec(x); return m ? { d: m[1].trim(), q: m[2] } : { d: x, q: '' }; });
+const ecrireLots = lots => lots.slice().sort((a, b) => cleDate(a.d) - cleDate(b.d)).map(l => l.q !== '' ? l.d + ':' + l.q : l.d).join(SEP_DATES);
+const lotsMultiples = e => lotsDe(e && e.d).length > 1;
+const texteDates = d => { const l = lotsDe(d); return l.length > 1 ? l.map(x => x.q !== '' ? x.d + ' (' + x.q + ')' : x.d).join(' · ') : (l[0] ? l[0].d : ''); };
 
 function optionsDate(val) {
   const j = [];
@@ -349,10 +354,10 @@ function ligneRef(key, i, e, split) {
     <td class="det">${esc(r[1]) || '<i>(sans détail)</i>'}${split?'<span class="split">2e chambre</span>':''}${!split && r[3] && !S.layout[i]?'<span class="aconf">à confirmer</span>':''}${vraieNv(r[5])?'<span class="nv">nouvelle</span>':''}${!split && S.pousser[cleRef(r[0], r[1])]?'<span class="pous">🔥 à pousser</span>':''}</td>
     <td><div class="qty">
       <button class="qbtn" data-d="-1">−</button>
-      <input class="qin${compte(e)?' rempli':''}" inputmode="numeric" value="${esc(e.q)}" placeholder="qté">
+      <input class="qin${compte(e)?' rempli':''}" inputmode="numeric" value="${esc(e.q)}" placeholder="qté"${lotsMultiples(e) ? ' readonly title="Total des dates : modifier via la case date" style="background:#F3F6F2"' : ''}>
       <button class="qbtn" data-d="1">+1</button>
       <button class="qbtn hide-m" data-d="10">+10</button></div></td>
-    <td><button class="dbtn${e.d?' rempli':''}${dateManquante(e)?' manque':''}" data-act="dates">${e.d ? esc(e.d) : dateManquante(e) ? '⚠ date ?' : '— date entrée —'}</button></td>
+    <td><button class="dbtn${e.d?' rempli':''}${dateManquante(e)?' manque':''}" data-act="dates">${e.d ? esc(texteDates(e.d)) : dateManquante(e) ? '⚠ date ?' : '— date entrée —'}</button></td>
     <td class="hide-m"><select class="sel csel${e.c?' rempli':''}">${optionsComm(e.c)}</select></td>
     <td class="no-print"><select class="sel chsel" style="max-width:96px">${optionsCh(split ? e.ch : chDe(i))}</select></td>
     <td class="no-print">${split ? '<button class="mini" data-act="del" title="Supprimer cette ligne">✕</button>'
@@ -430,7 +435,9 @@ box.addEventListener('click', ev => {
   const b = ev.target.closest('button'); if (!b) return;
   const k = keyDe(b); if (!k) return;
   const e = entree(k), tr = b.closest('tr');
-  if (b.dataset.d) {
+  if (b.dataset.d && lotsMultiples(e)) {
+    ouvrirDates(e, tr.querySelector('.dbtn'));
+  } else if (b.dataset.d) {
     const v = Math.max(0, (parseInt(e.q, 10) || 0) + (+b.dataset.d));
     e.q = String(v); tr.querySelector('.qin').value = e.q; marquer(tr, e); save(); majStat();
   } else if (b.dataset.act === 'split') {
@@ -443,6 +450,10 @@ box.addEventListener('click', ev => {
   } else if (b.dataset.act === 'pousser') {
     basculerPousser(+k.slice(1));
   }
+});
+box.addEventListener('click', ev => {   // quantité calculée (plusieurs dates) : on ouvre le détail
+  const t = ev.target; if (!t.classList || !t.classList.contains('qin') || !t.readOnly) return;
+  const e = entree(keyDe(t)); ouvrirDates(e, t.closest('tr').querySelector('.dbtn'));
 });
 box.addEventListener('input', ev => {
   const t = ev.target;
@@ -548,37 +559,65 @@ $('#raz').onclick = ev => {
   S.p = {}; S.x = []; S.cloture = null; S.date = auj(); $('#d-jour').value = S.date; saveLocal(); render(); chargerServeur();   // chambres et consignes conservées
 };
 /* ---------- clôture : historique + archive du jour dans SharePoint ---------- */
-/* ---------- choix des dates d'entrée (plusieurs possibles) ---------- */
-let mdCible = null, mdSel = [];
+/* ---------- choix des dates d'entrée : une quantité par date ---------- */
+let mdCible = null, mdSel = [];   // [{d, q}]
+function mdTotal() { return mdSel.reduce((t, l) => t + (parseInt(l.q, 10) || 0), 0); }
 function mdRendu() {
   const j = [];
   for (let k = 0; k < 21; k++) { const d = new Date(Date.now() - k * 864e5); j.push(String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0')); }
   const jours = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'];
-  $('#md-grille').innerHTML = j.map((x, k) => `<button type="button" data-j="${x}" class="${mdSel.includes(x) ? 'on' : ''}">${x}<small>${k === 0 ? 'auj.' : jours[new Date(Date.now() - k * 864e5).getDay()]}</small></button>`).join('');
-  $('#md-choisies').innerHTML = mdSel.length ? 'Choisi : <b>' + esc(joindreDates(mdSel)) + '</b>' : '<span style="color:var(--muted)">Aucune date — touchez une ou plusieurs dates</span>';
+  const pris = mdSel.map(l => l.d);
+  $('#md-grille').innerHTML = j.map((x, k) => `<button type="button" data-j="${x}" class="${pris.includes(x) ? 'on' : ''}">${x}<small>${k === 0 ? 'auj.' : jours[new Date(Date.now() - k * 864e5).getDay()]}</small></button>`).join('');
+  mdSel.sort((a, b) => cleDate(a.d) - cleDate(b.d));
+  if (!mdSel.length) { $('#md-choisies').innerHTML = '<span style="color:var(--muted)">Aucune date — touchez une ou plusieurs dates</span>'; return; }
+  const plusieurs = mdSel.length > 1;
+  $('#md-choisies').innerHTML = `<table style="width:100%;border-collapse:collapse">
+    <tr><th style="text-align:left;font-size:12px;color:var(--muted)">Date d'entrée</th><th style="text-align:left;font-size:12px;color:var(--muted)">Colis ${plusieurs ? '(obligatoire)' : '(facultatif)'}</th><th></th></tr>
+    ${mdSel.map((l, k) => `<tr><td style="padding:4px 0;font-weight:750">${esc(l.d)}${k === 0 && plusieurs ? ' <span style="font-size:11px;color:var(--muted)">(plus ancienne)</span>' : ''}</td>
+      <td><input class="md-q" data-k="${k}" inputmode="numeric" value="${esc(l.q)}" placeholder="colis" style="width:110px;height:40px;border:1.5px solid var(--line);border-radius:9px;padding:0 10px;font:inherit;font-size:16px"></td>
+      <td><button type="button" class="mini" data-del="${k}">✕</button></td></tr>`).join('')}
+    ${plusieurs ? `<tr><td style="padding-top:6px"><b>Total</b></td><td style="padding-top:6px"><b id="md-total">${mdTotal()}</b> colis</td><td></td></tr>` : ''}
+  </table>`;
 }
 function ouvrirDates(e, btn) {
-  mdCible = e; mdSel = listeDates(e.d);
+  mdCible = e;
+  mdSel = lotsDe(e.d).map(l => ({ d: l.d, q: l.q }));
+  if (mdSel.length === 1 && !mdSel[0].q && compte(e)) mdSel[0].q = e.q;
   const tr = btn.closest('tr.ref'), i = e.i !== undefined ? e.i : +tr.dataset.k.slice(1);
   $('#md-ref').textContent = REFS[i] ? REFS[i][0] + ' — ' + REFS[i][1] : '';
-  $('#md-autre').value = ''; mdRendu(); $('#mdates').classList.add('on');
+  $('#md-err').textContent = ''; $('#md-autre').value = ''; mdRendu(); $('#mdates').classList.add('on');
 }
 $('#md-grille').addEventListener('click', ev => {
   const b = ev.target.closest('button'); if (!b) return;
-  const x = b.dataset.j; mdSel = mdSel.includes(x) ? mdSel.filter(y => y !== x) : mdSel.concat(x); mdRendu();
+  const x = b.dataset.j;
+  mdSel = mdSel.some(l => l.d === x) ? mdSel.filter(l => l.d !== x) : mdSel.concat({ d: x, q: '' }); mdRendu();
+});
+$('#md-choisies').addEventListener('input', ev => {
+  const t = ev.target; if (!t.classList.contains('md-q')) return;
+  t.value = t.value.replace(/[^\d]/g, ''); mdSel[+t.dataset.k].q = t.value;
+  const tot = document.getElementById('md-total'); if (tot) tot.textContent = mdTotal();
+});
+$('#md-choisies').addEventListener('click', ev => {
+  const b = ev.target.closest('button[data-del]'); if (!b) return; mdSel.splice(+b.dataset.del, 1); mdRendu();
 });
 $('#md-ajout').onclick = () => {
   const v = $('#md-autre').value.trim().replace(/[.\-]/g, '/');
   if (!/^\d{1,2}\/\d{1,2}(\/\d{2,4})?$/.test(v)) { $('#md-autre').style.borderColor = 'var(--crit)'; return; }
   $('#md-autre').style.borderColor = ''; const [a, b, c] = v.split('/');
   const n = a.padStart(2, '0') + '/' + b.padStart(2, '0') + (c ? '/' + c : '');
-  if (!mdSel.includes(n)) mdSel.push(n); $('#md-autre').value = ''; mdRendu();
+  if (!mdSel.some(l => l.d === n)) mdSel.push({ d: n, q: '' }); $('#md-autre').value = ''; mdRendu();
 };
 $('#md-autre').addEventListener('keydown', k => { if (k.key === 'Enter') { k.preventDefault(); $('#md-ajout').click(); } });
 $('#md-vider').onclick = () => { mdSel = []; mdRendu(); };
 $('#md-annuler').onclick = () => { $('#mdates').classList.remove('on'); mdCible = null; };
 $('#md-ok').onclick = () => {
-  if (mdCible) { mdCible.d = joindreDates(mdSel); save(); }
+  if (mdCible) {
+    if (mdSel.length > 1 && mdSel.some(l => !(parseInt(l.q, 10) > 0))) { $('#md-err').textContent = 'Indiquez le nombre de colis pour chaque date.'; return; }
+    if (mdSel.length > 1) { mdCible.d = ecrireLots(mdSel); mdCible.q = String(mdTotal()); }
+    else if (mdSel.length === 1) { mdCible.d = mdSel[0].d; if (mdSel[0].q !== '') mdCible.q = String(parseInt(mdSel[0].q, 10) || 0); }
+    else mdCible.d = '';
+    save();
+  }
   $('#mdates').classList.remove('on'); mdCible = null; render();
 };
 

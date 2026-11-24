@@ -162,11 +162,20 @@ function lireCSV(txt) {
     const o = {}; ent.forEach((h, i) => o[h] = (l[i] || '').trim());
     const q = num(o.QUANTITE); if (q === null) continue;
     const cle = norm(o.PRODUIT) + '|' + norm(o.DETAIL);
-    if (!agr.has(cle)) agr.set(cle, { produit: o.PRODUIT, detail: o.DETAIL, ch: {}, dates: [], comms: [], champs: null });
+    if (!agr.has(cle)) agr.set(cle, { produit: o.PRODUIT, detail: o.DETAIL, ch: {}, dates: [], comms: [], champs: null, lots: {}, lotsIncomplets: false });
     const a = agr.get(cle);
     const ch = (o.CHAMBRE || '').toUpperCase() || '?';
     a.ch[ch] = (a.ch[ch] || 0) + q;
-    String(o.DATE_ENTREE || '').split(/\s*[·,;+]\s*|\s+et\s+/).map(x => x.trim()).filter(Boolean).forEach(d => { if (!a.dates.includes(d)) a.dates.push(d); });
+    { // dates d'entrée : « 05/11 » ou, si plusieurs, « 05/11:10 · 12/11:5 » (date:colis)
+      const parts = String(o.DATE_ENTREE || '').split(/\s*[·,;+]\s*|\s+et\s+/).map(x => x.trim()).filter(Boolean);
+      parts.forEach(x => {
+        const m = /^(.+?)\s*[:=]\s*(\d+)$/.exec(x), d = m ? m[1].trim() : x;
+        if (!a.dates.includes(d)) a.dates.push(d);
+        if (m) a.lots[d] = (a.lots[d] || 0) + (+m[2]);
+        else if (parts.length === 1) a.lots[d] = (a.lots[d] || 0) + q;
+        else a.lotsIncomplets = true;
+      });
+    }
     if (o.COMMENTAIRE && !a.comms.includes(o.COMMENTAIRE)) a.comms.push(o.COMMENTAIRE);
     if ((o.NOUVELLE || '').toLowerCase() === 'oui' && !a.champs)
       a.champs = { E: o.PRODUIT, D: o.FAMILLE || '', F: o.CATEGORIE || '', G: o.CALIBRE || '', H: o.COULEUR || '',
@@ -519,6 +528,14 @@ async function basculer(csvTxt, buf, nomClasseur, nomCsv, opt) {
 }
 
 /* ---------------- report dans STOCK UNIVERT MAJ 2025 (feuille STOCK) ---------------- */
+/* commentaire ajouté quand une référence a plusieurs dates d'entrée : colis par date (la plus ancienne va en colonne D) */
+function detailDates(r, dateReleve) {
+  const tri = arr => arr.slice().sort((x, y) => (serieExcel(x, dateReleve) ?? 9e9) - (serieExcel(y, dateReleve) ?? 9e9));
+  const ds = Object.keys(r.lots || {});
+  if (ds.length > 1 && !r.lotsIncomplets) return ['colis par date : ' + tri(ds).map(d => d + ' : ' + r.lots[d] + ' colis').join(' · ')];
+  const ok = r.dates.filter(d => serieExcel(d, dateReleve) !== null);
+  return ok.length > 1 ? ['autres dates : ' + tri(ok).slice(1).join(' · ')] : [];
+}
 function serieExcel(txt, dateReleve) {
   const m = /^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/.exec(String(txt || '').trim());
   if (!m) return null;
@@ -603,7 +620,7 @@ async function remplirStock(csvTxt, buf, nomFichier, nomCsv, opt) {
     const total = somme(r.ch);
     const dates = r.dates.map(d => serieExcel(d, dateReleve)).filter(x => x !== null).sort((a, b) => a - b);
     r.dates.forEach(d => { if (serieExcel(d, dateReleve) === null) sansDate.push(r.produit + ' : « ' + d + ' »'); });
-    let comm = [...r.comms, ...r.dates.filter(d => serieExcel(d, dateReleve) === null), ...(r.dates.filter(d => serieExcel(d, dateReleve) !== null).length > 1 ? ['autres dates : ' + r.dates.filter(d => serieExcel(d, dateReleve) !== null).sort((x, y) => serieExcel(x, dateReleve) - serieExcel(y, dateReleve)).slice(1).join(' · ')] : [])].join(' · ');
+    let comm = [...r.comms, ...r.dates.filter(d => serieExcel(d, dateReleve) === null), ...detailDates(r, dateReleve)].join(' · ');
     let ligne = index.get(cle), nouvelle = false;
     if (!ligne) {
       ligne = derniere + 1 + ajoutees.length; nouvelle = true;
@@ -643,7 +660,7 @@ async function remplirStock(csvTxt, buf, nomFichier, nomCsv, opt) {
   const parLigne = new Map();
   for (const [cle, r] of agr) {
     const dates = r.dates.map(d => serieExcel(d, dateReleve)).filter(x => x !== null).sort((a, b) => a - b);
-    const comm = [...r.comms, ...r.dates.filter(d => serieExcel(d, dateReleve) === null), ...(r.dates.filter(d => serieExcel(d, dateReleve) !== null).length > 1 ? ['autres dates : ' + r.dates.filter(d => serieExcel(d, dateReleve) !== null).sort((x, y) => serieExcel(x, dateReleve) - serieExcel(y, dateReleve)).slice(1).join(' · ')] : [])].join(' · ');
+    const comm = [...r.comms, ...r.dates.filter(d => serieExcel(d, dateReleve) === null), ...detailDates(r, dateReleve)].join(' · ');
     parLigne.set(cle, { total: somme(r.ch), date: dates.length ? dates[0] : '', comm, r });
   }
   const lignesCDE = [];
