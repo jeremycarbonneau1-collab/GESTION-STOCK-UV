@@ -78,6 +78,23 @@ tr.ref.flash td{animation:flash 2.4s ease-out}
 .nv{display:inline-block;font-size:9.5px;font-weight:750;color:#fff;background:#2B6CB0;border-radius:5px;padding:1px 6px;margin-left:7px}
 #modal{position:fixed;inset:0;background:rgba(20,30,25,.45);display:none;align-items:flex-start;justify-content:center;z-index:30;overflow:auto;padding:24px 10px}
 #modal.on{display:flex}
+.dbtn{height:40px;width:100%;max-width:150px;border:1.5px solid var(--line);border-radius:9px;background:#fff;font:inherit;font-size:13.5px;color:var(--muted);cursor:pointer;padding:0 6px;line-height:1.15;overflow:hidden}
+.dbtn.rempli{color:var(--ink);font-weight:650;border-color:var(--brand-2)}
+.dbtn.manque{border-color:var(--crit);background:#FDECEC;color:var(--crit);font-weight:750}
+tr.ref.fait-sansdate{box-shadow:inset 4px 0 0 var(--crit)}
+#mdates{position:fixed;inset:0;background:rgba(20,30,25,.45);display:none;align-items:center;justify-content:center;z-index:40;padding:14px}
+#mdates.on{display:flex}
+#mdates .box{background:#fff;border-radius:14px;max-width:520px;width:100%;padding:16px 18px;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+#mdates h3{color:var(--brand);font-size:17px;margin-bottom:2px}
+#mdates .sous{font-size:12.5px;color:var(--muted);margin-bottom:10px}
+#mdates .grille{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+#mdates .grille button{height:44px;border:1.5px solid var(--line);border-radius:9px;background:#fff;font:inherit;font-size:14px;cursor:pointer}
+#mdates .grille button.on{background:var(--brand-2);border-color:var(--brand-2);color:#fff;font-weight:750}
+#mdates .grille button small{display:block;font-size:10px;opacity:.7}
+#mdates .autre{display:flex;gap:8px;margin-top:10px}
+#mdates .autre input{flex:1;height:42px;border:1.5px solid var(--line);border-radius:9px;padding:0 10px;font:inherit;font-size:15px}
+#mdates .choisies{margin-top:10px;font-size:14px;min-height:20px}
+#mdates .act{display:flex;gap:10px;justify-content:space-between;margin-top:12px}
 #modal .box{background:#fff;border-radius:14px;max-width:760px;width:100%;padding:18px 20px;box-shadow:0 10px 40px rgba(0,0,0,.3)}
 #modal h3{color:var(--brand);font-size:18px;margin-bottom:4px}
 #modal .aide{font-size:12.5px;color:var(--muted);margin-bottom:12px}
@@ -112,6 +129,8 @@ tr.ref.flash td{animation:flash 2.4s ease-out}
   body.impr tr.ref:not(.fait), body.impr tr.prod.sans, body.impr .ch.sans, body.impr .vide{display:none!important}
   body.impr #toast, body.impr #modal{display:none!important}
   .sel.dsel:not(.rempli), .sel.csel:not(.rempli){color:transparent}
+  .dbtn:not(.rempli){color:transparent}
+  .dbtn{border:1px solid #999}
   .aconf{display:none}
   .navbar label{display:none}
   .entete-impr{display:block!important;font-size:12px;margin:0 0 8px}
@@ -152,6 +171,7 @@ tr.ref.flash td{animation:flash 2.4s ease-out}
   (produit + emballage, calibre, marque, palette), avec la même clé que les vendeurs.
   Quantité vide = pas comptée (le stock frigo reste tel quel) ; <b>0</b> = compté vide.
   Une référence rangée dans deux chambres : bouton <b>＋</b> pour ajouter une ligne dans l'autre chambre.
+  <b>Date d'entrée obligatoire</b> dès qu'il y a des colis (plusieurs dates possibles : touchez-les toutes).
   Bouton <b>🔥</b> : produit <b>à pousser</b> par le commerce (récap par mail chaque matin, jusqu'à ce qu'on le décoche).
   La saisie est <b>sauvegardée sur la tablette</b> au fur et à mesure.
   Généré depuis <b>TABLEAU_DES_VENTES_MAJ_3.xlsm</b> le 24/11/2026.</div>
@@ -162,6 +182,14 @@ tr.ref.flash td{animation:flash 2.4s ease-out}
 <div id="toast"></div>
 <datalist id="dl-E"></datalist><datalist id="dl-D"></datalist><datalist id="dl-F"></datalist><datalist id="dl-G"></datalist>
 <datalist id="dl-H"></datalist><datalist id="dl-I"></datalist><datalist id="dl-J"></datalist><datalist id="dl-K"></datalist>
+<div id="mdates"><div class="box">
+  <h3>Date(s) d'entrée</h3>
+  <div class="sous" id="md-ref"></div>
+  <div class="grille" id="md-grille"></div>
+  <div class="autre"><input id="md-autre" placeholder="Autre date (jj/mm)" inputmode="numeric"><button class="btn sec" id="md-ajout" type="button">Ajouter</button></div>
+  <div class="choisies" id="md-choisies"></div>
+  <div class="act"><button class="btn sec" id="md-vider" type="button">Effacer</button><span><button class="btn sec" id="md-annuler" type="button">Annuler</button> <button class="btn" id="md-ok" type="button">OK</button></span></div>
+</div></div>
 <div id="modal"><div class="box">
   <h3>Nouvelle référence</h3>
   <div class="aide">Pour une référence absente de la liste. Les champs sont ceux de l'onglet « stock » du TABLEAU DES VENTES :
@@ -286,6 +314,17 @@ const chDe = i => S.layout[i] || REFS[i][2];
 const prim = i => (S.p[i] = S.p[i] || {q:'', d:'', c:''});
 const entree = key => key[0] === 'p' ? prim(+key.slice(1)) : S.x[+key.slice(1)];
 const compte = e => e && e.q !== '' && e.q != null;
+const dateManquante = e => compte(e) && +e.q > 0 && !String(e.d || '').trim();   // date d'entrée obligatoire dès qu'il y a des colis
+/* dates multiples : « 13/11 · 19/11 », triées de la plus ancienne à la plus récente */
+const SEP_DATES = ' · ';
+function cleDate(t) {
+  const m = /^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/.exec(String(t).trim()); if (!m) return 9e15;
+  const auj0 = new Date(); let an = m[3] ? (+m[3] < 100 ? 2000 + +m[3] : +m[3]) : auj0.getFullYear();
+  let d = new Date(an, +m[2] - 1, +m[1]); if (!m[3] && d - auj0 > 864e5) d = new Date(an - 1, +m[2] - 1, +m[1]);
+  return d.getTime();
+}
+const listeDates = d => String(d || '').split(/\s*[·,;+]\s*|\s+et\s+/).map(x => x.trim()).filter(Boolean);
+const joindreDates = arr => [...new Set(arr)].sort((a, b) => cleDate(a) - cleDate(b)).join(SEP_DATES);
 
 function optionsDate(val) {
   const j = [];
@@ -313,7 +352,7 @@ function ligneRef(key, i, e, split) {
       <input class="qin${compte(e)?' rempli':''}" inputmode="numeric" value="${esc(e.q)}" placeholder="qté">
       <button class="qbtn" data-d="1">+1</button>
       <button class="qbtn hide-m" data-d="10">+10</button></div></td>
-    <td><select class="sel dsel${e.d?' rempli':''}">${optionsDate(e.d)}</select></td>
+    <td><button class="dbtn${e.d?' rempli':''}${dateManquante(e)?' manque':''}" data-act="dates">${e.d ? esc(e.d) : dateManquante(e) ? '⚠ date ?' : '— date entrée —'}</button></td>
     <td class="hide-m"><select class="sel csel${e.c?' rempli':''}">${optionsComm(e.c)}</select></td>
     <td class="no-print"><select class="sel chsel" style="max-width:96px">${optionsCh(split ? e.ch : chDe(i))}</select></td>
     <td class="no-print">${split ? '<button class="mini" data-act="del" title="Supprimer cette ligne">✕</button>'
@@ -325,6 +364,7 @@ function ligneRef(key, i, e, split) {
 function visible(i, e) {
   if (filtre === 'fait' && !compte(e)) return false;
   if (filtre === 'afaire' && compte(e)) return false;
+  if (filtre === 'sansdate' && !dateManquante(e)) return false;
   if (filtre === 'pousser' && !S.pousser[cleRef(REFS[i][0], REFS[i][1])]) return false;
   if (!recherche) return true;
   return (REFS[i][0] + ' ' + REFS[i][1] + ' ' + REFS[i][4]).toUpperCase().includes(recherche);
@@ -372,7 +412,8 @@ function majStat() {
   const n = REFS.filter((r, i) => compte(prim(i)) || S.x.some(e => e && e.i === i && compte(e))).length;
   const na = REFS.filter((r, i) => chDe(i) === 'NA' && dansListe(i)).length;
   const nbListe = REFS.filter((r, i) => dansListe(i)).length;
-  $('#stat').textContent = `${n} / ${nbListe} références comptées` + (na ? ` · ${na} à affecter` : '')
+  const sansDate = REFS.filter((r, i) => dateManquante(prim(i))).length + S.x.filter(e => e && dateManquante(e)).length;
+  $('#stat').textContent = `${n} / ${nbListe} références comptées` + (na ? ` · ${na} à affecter` : '') + (sansDate ? ` · ⚠ ${sansDate} sans date` : '')
     + ` · ${tous.filter(compte).reduce((s, e) => s + (+e.q || 0), 0)} colis`;
 }
 
@@ -381,6 +422,8 @@ const box = $('#chambres');
 const keyDe = el => el.closest('tr.ref')?.dataset.k;
 function marquer(tr, e) {
   tr.classList.toggle('fait', compte(e));
+  const db = tr.querySelector('.dbtn');
+  if (db) { db.classList.toggle('manque', dateManquante(e)); if (!e.d) db.textContent = dateManquante(e) ? '⚠ date ?' : '— date entrée —'; }
   tr.querySelector('.qin').classList.toggle('rempli', compte(e));
 }
 box.addEventListener('click', ev => {
@@ -395,6 +438,8 @@ box.addEventListener('click', ev => {
     S.x.push({i, ch: chDe(i) === 'A' ? 'B' : 'A', q:'', d:'', c:''}); save(); render();
   } else if (b.dataset.act === 'del') {
     S.x[+k.slice(1)] = null; save(); render();
+  } else if (b.dataset.act === 'dates') {
+    ouvrirDates(e, b);
   } else if (b.dataset.act === 'pousser') {
     basculerPousser(+k.slice(1));
   }
@@ -503,7 +548,53 @@ $('#raz').onclick = ev => {
   S.p = {}; S.x = []; S.cloture = null; S.date = auj(); $('#d-jour').value = S.date; saveLocal(); render(); chargerServeur();   // chambres et consignes conservées
 };
 /* ---------- clôture : historique + archive du jour dans SharePoint ---------- */
+/* ---------- choix des dates d'entrée (plusieurs possibles) ---------- */
+let mdCible = null, mdSel = [];
+function mdRendu() {
+  const j = [];
+  for (let k = 0; k < 21; k++) { const d = new Date(Date.now() - k * 864e5); j.push(String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0')); }
+  const jours = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'];
+  $('#md-grille').innerHTML = j.map((x, k) => `<button type="button" data-j="${x}" class="${mdSel.includes(x) ? 'on' : ''}">${x}<small>${k === 0 ? 'auj.' : jours[new Date(Date.now() - k * 864e5).getDay()]}</small></button>`).join('');
+  $('#md-choisies').innerHTML = mdSel.length ? 'Choisi : <b>' + esc(joindreDates(mdSel)) + '</b>' : '<span style="color:var(--muted)">Aucune date — touchez une ou plusieurs dates</span>';
+}
+function ouvrirDates(e, btn) {
+  mdCible = e; mdSel = listeDates(e.d);
+  const tr = btn.closest('tr.ref'), i = e.i !== undefined ? e.i : +tr.dataset.k.slice(1);
+  $('#md-ref').textContent = REFS[i] ? REFS[i][0] + ' — ' + REFS[i][1] : '';
+  $('#md-autre').value = ''; mdRendu(); $('#mdates').classList.add('on');
+}
+$('#md-grille').addEventListener('click', ev => {
+  const b = ev.target.closest('button'); if (!b) return;
+  const x = b.dataset.j; mdSel = mdSel.includes(x) ? mdSel.filter(y => y !== x) : mdSel.concat(x); mdRendu();
+});
+$('#md-ajout').onclick = () => {
+  const v = $('#md-autre').value.trim().replace(/[.\-]/g, '/');
+  if (!/^\d{1,2}\/\d{1,2}(\/\d{2,4})?$/.test(v)) { $('#md-autre').style.borderColor = 'var(--crit)'; return; }
+  $('#md-autre').style.borderColor = ''; const [a, b, c] = v.split('/');
+  const n = a.padStart(2, '0') + '/' + b.padStart(2, '0') + (c ? '/' + c : '');
+  if (!mdSel.includes(n)) mdSel.push(n); $('#md-autre').value = ''; mdRendu();
+};
+$('#md-autre').addEventListener('keydown', k => { if (k.key === 'Enter') { k.preventDefault(); $('#md-ajout').click(); } });
+$('#md-vider').onclick = () => { mdSel = []; mdRendu(); };
+$('#md-annuler').onclick = () => { $('#mdates').classList.remove('on'); mdCible = null; };
+$('#md-ok').onclick = () => {
+  if (mdCible) { mdCible.d = joindreDates(mdSel); save(); }
+  $('#mdates').classList.remove('on'); mdCible = null; render();
+};
+
 $('#cloturer').onclick = async ev => {
+  {
+    const manque = [];
+    REFS.forEach((r, i) => { if (dateManquante(prim(i))) manque.push(r[0] + ' — ' + r[1]); });
+    S.x.forEach(e => { if (e && dateManquante(e)) manque.push(REFS[e.i][0] + ' — ' + REFS[e.i][1] + ' (2e chambre)'); });
+    if (manque.length) {
+      filtre = 'sansdate'; document.querySelectorAll('.chip').forEach(x => x.classList.remove('on')); render();
+      message(`⚠ Clôture impossible : <b>${manque.length} ligne(s) comptée(s) sans date d'entrée</b>. Elles sont affichées ci-dessous (case rouge « ⚠ date ? ») : renseignez la date puis reclôturez.
+        <br><a href="#" onclick="filtre='tout';document.querySelector('.chip[data-f=tout]').classList.add('on');render();return false">Revoir toutes les lignes</a>`, true);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+  }
   const b = ev.currentTarget;
   const lignes = [];
   const ajoute = (i, ch, e) => lignes.push({ produit: REFS[i][0], detail: REFS[i][1], chambre: LIB[ch] ?? ch, quantite: e.q, date_entree: e.d, commentaire: e.c,
